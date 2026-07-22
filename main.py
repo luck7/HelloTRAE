@@ -1,5 +1,6 @@
 import random
 import math
+from pgzero.clock import schedule
 
 TILE = 32
 MAP_W = 13
