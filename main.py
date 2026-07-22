@@ -89,16 +89,48 @@ class Tank:
             self.blink_timer += 1
 
     def snap_to_grid(self):
-        def snap(val):
-            return round(val / GRID) * GRID
-        sx = snap(self.x)
-        sy = snap(self.y)
-        if check_map_collision(sx, self.y, self.width, self.height) and \
-           check_tank_collision(self, sx, self.y):
-            self.x = sx
-        if check_map_collision(self.x, sy, self.width, self.height) and \
-           check_tank_collision(self, self.x, sy):
-            self.y = sy
+        # 转向时只对齐垂直于移动方向的轴，避免斜向跳动
+        if self.dir in (DIR_UP, DIR_DOWN):
+            sx = round(self.x / GRID) * GRID
+            if check_map_collision(sx, self.y, self.width, self.height) and \
+               check_tank_collision(self, sx, self.y):
+                self.x = sx
+        else:
+            sy = round(self.y / GRID) * GRID
+            if check_map_collision(self.x, sy, self.width, self.height) and \
+               check_tank_collision(self, self.x, sy):
+                self.y = sy
+
+    def slide_to_grid(self):
+        # 只沿移动方向单轴滑动，始终向前（不后退），避免反向跳动
+        if self.dir == DIR_UP:
+            ty = (self.y // GRID) * GRID
+            if self.y != ty:
+                fy = max(self.y - self.speed, ty)
+                if check_map_collision(self.x, fy, self.width, self.height) and \
+                   check_tank_collision(self, self.x, fy):
+                    self.y = fy
+        elif self.dir == DIR_DOWN:
+            ty = math.ceil(self.y / GRID) * GRID
+            if self.y != ty:
+                fy = min(self.y + self.speed, ty)
+                if check_map_collision(self.x, fy, self.width, self.height) and \
+                   check_tank_collision(self, self.x, fy):
+                    self.y = fy
+        elif self.dir == DIR_LEFT:
+            tx = (self.x // GRID) * GRID
+            if self.x != tx:
+                fx = max(self.x - self.speed, tx)
+                if check_map_collision(fx, self.y, self.width, self.height) and \
+                   check_tank_collision(self, fx, self.y):
+                    self.x = fx
+        elif self.dir == DIR_RIGHT:
+            tx = math.ceil(self.x / GRID) * GRID
+            if self.x != tx:
+                fx = min(self.x + self.speed, tx)
+                if check_map_collision(fx, self.y, self.width, self.height) and \
+                   check_tank_collision(self, fx, self.y):
+                    self.x = fx
 
     def move(self):
         if not self.alive or not self.moving:
@@ -445,6 +477,7 @@ def update_enemies():
             if new_dir != opposite:
                 e.dir = new_dir
 
+        # 转向时对齐垂直轴
         if e.dir != old_dir:
             e.snap_to_grid()
 
@@ -480,7 +513,6 @@ def update():
             spawn_enemy()
 
     if player and player.alive:
-        was_moving = player.moving
         player.moving = False
         if keyboard.w or keyboard.up:
             player.dir = DIR_UP
@@ -497,8 +529,8 @@ def update():
 
         if player.moving:
             player.move()
-        elif was_moving:
-            player.snap_to_grid()
+        else:
+            player.slide_to_grid()
         player.update()
 
     if keyboard.space and player and player.alive:

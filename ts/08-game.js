@@ -100,7 +100,6 @@ function update() {
         }
     }
     if (player && player.alive) {
-        const wasMoving = player.moving;
         player.moving = false;
         if (keys['w'] || keys['arrowup']) {
             player.dir = DIR.UP;
@@ -121,8 +120,8 @@ function update() {
         if (player.moving) {
             player.move();
         }
-        else if (wasMoving) {
-            player.snapToGrid();
+        else {
+            player.slideToGrid();
         }
         player.update();
     }

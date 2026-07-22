@@ -49,8 +49,8 @@ function updateEnemies() {
     for (const e of enemies) {
         if (!e.alive) continue;
         e.moving = true;
-
         const oldDir = e.dir;
+
         // 低概率随机转向，且不会直接掉头（除非被堵住）
         if (Math.random() < 0.008) {
             const opposite = (e.dir + 2) % 4;
@@ -72,6 +72,7 @@ function updateEnemies() {
             if (newDir !== opposite) e.dir = newDir;
         }
 
+        // 转向时对齐垂直轴
         if (e.dir !== oldDir) {
             e.snapToGrid();
         }
@@ -105,7 +106,6 @@ function update() {
     }
 
     if (player && player.alive) {
-        const wasMoving = player.moving;
         player.moving = false;
         if (keys['w'] || keys['arrowup']) { player.dir = DIR.UP; player.moving = true; }
         else if (keys['s'] || keys['arrowdown']) { player.dir = DIR.DOWN; player.moving = true; }
@@ -114,8 +114,8 @@ function update() {
 
         if (player.moving) {
             player.move();
-        } else if (wasMoving) {
-            player.snapToGrid();
+        } else {
+            player.slideToGrid();
         }
         player.update();
     }

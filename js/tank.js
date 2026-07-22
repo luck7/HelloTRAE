@@ -31,16 +31,64 @@ class Tank {
     }
 
     snapToGrid() {
-        const snap = (val) => Math.round(val / GRID) * GRID;
-        const sx = snap(this.x);
-        const sy = snap(this.y);
-        if (checkMapCollision(sx, this.y, this.width, this.height) &&
-            checkTankCollision(this, sx, this.y)) {
-            this.x = sx;
+        // 转向时只对齐垂直于移动方向的轴，避免斜向跳动
+        if (this.dir === DIR.UP || this.dir === DIR.DOWN) {
+            const sx = Math.round(this.x / GRID) * GRID;
+            if (checkMapCollision(sx, this.y, this.width, this.height) &&
+                checkTankCollision(this, sx, this.y)) {
+                this.x = sx;
+            }
+        } else {
+            const sy = Math.round(this.y / GRID) * GRID;
+            if (checkMapCollision(this.x, sy, this.width, this.height) &&
+                checkTankCollision(this, this.x, sy)) {
+                this.y = sy;
+            }
         }
-        if (checkMapCollision(this.x, sy, this.width, this.height) &&
-            checkTankCollision(this, this.x, sy)) {
-            this.y = sy;
+    }
+
+    slideToGrid() {
+        // 只沿移动方向单轴滑动，始终向前（不后退），避免反向跳动
+        if (this.dir === DIR.UP) {
+            const ty = Math.floor(this.y / GRID) * GRID;
+            if (this.y !== ty) {
+                const newY = this.y - this.speed;
+                const fy = Math.max(newY, ty);
+                if (checkMapCollision(this.x, fy, this.width, this.height) &&
+                    checkTankCollision(this, this.x, fy)) {
+                    this.y = fy;
+                }
+            }
+        } else if (this.dir === DIR.DOWN) {
+            const ty = Math.ceil(this.y / GRID) * GRID;
+            if (this.y !== ty) {
+                const newY = this.y + this.speed;
+                const fy = Math.min(newY, ty);
+                if (checkMapCollision(this.x, fy, this.width, this.height) &&
+                    checkTankCollision(this, this.x, fy)) {
+                    this.y = fy;
+                }
+            }
+        } else if (this.dir === DIR.LEFT) {
+            const tx = Math.floor(this.x / GRID) * GRID;
+            if (this.x !== tx) {
+                const newX = this.x - this.speed;
+                const fx = Math.max(newX, tx);
+                if (checkMapCollision(fx, this.y, this.width, this.height) &&
+                    checkTankCollision(this, fx, this.y)) {
+                    this.x = fx;
+                }
+            }
+        } else if (this.dir === DIR.RIGHT) {
+            const tx = Math.ceil(this.x / GRID) * GRID;
+            if (this.x !== tx) {
+                const newX = this.x + this.speed;
+                const fx = Math.min(newX, tx);
+                if (checkMapCollision(fx, this.y, this.width, this.height) &&
+                    checkTankCollision(this, fx, this.y)) {
+                    this.x = fx;
+                }
+            }
         }
     }
 

@@ -54,6 +54,7 @@ export function updateEnemies(): void {
             if (newDir !== opposite) e.dir = newDir;
         }
 
+        // 转向时对齐垂直轴
         if (e.dir !== oldDir) {
             e.snapToGrid();
         }
@@ -86,7 +87,6 @@ export function update(): void {
     }
 
     if (game.player && game.player.alive) {
-        const wasMoving: boolean = game.player.moving;
         game.player.moving = false;
         if (game.keys['w'] || game.keys['arrowup']) { game.player.dir = DIR.UP; game.player.moving = true; }
         else if (game.keys['s'] || game.keys['arrowdown']) { game.player.dir = DIR.DOWN; game.player.moving = true; }
@@ -95,8 +95,8 @@ export function update(): void {
 
         if (game.player.moving) {
             game.player.move();
-        } else if (wasMoving) {
-            game.player.snapToGrid();
+        } else {
+            game.player.slideToGrid();
         }
         game.player.update();
     }

@@ -26,7 +26,7 @@ export function spawnEnemy() {
 export function updateEnemies() {
     for (const e of game.enemies) {
         if (!e.alive)
-            continue;
+            return;
         e.moving = true;
         const oldDir = e.dir;
         if (Math.random() < 0.008) {
@@ -75,7 +75,6 @@ export function update() {
         }
     }
     if (game.player && game.player.alive) {
-        const wasMoving = game.player.moving;
         game.player.moving = false;
         if (game.keys['w'] || game.keys['arrowup']) {
             game.player.dir = DIR.UP;
@@ -96,8 +95,8 @@ export function update() {
         if (game.player.moving) {
             game.player.move();
         }
-        else if (wasMoving) {
-            game.player.snapToGrid();
+        else {
+            game.player.slideToGrid();
         }
         game.player.update();
     }
