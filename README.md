@@ -1,6 +1,6 @@
 # Battle City - FC坦克大战复刻版
 
-经典FC坦克大战游戏的HTML5 Canvas复刻版。
+经典FC坦克大战游戏的Pygame Zero复刻版。
 
 ## 游戏特性
 
@@ -10,7 +10,7 @@
 - ✅ 基地保护机制
 - ✅ 子弹与坦克碰撞检测
 - ✅ 子弹碰撞抵消（玩家子弹与敌方子弹互相抵消）
-- ✅ 爆炸效果与音效
+- ✅ 爆炸效果
 - ✅ 坦克停止时对齐半格（16px）网格
 - ✅ 每坦克最多同时发射两个子弹
 - ✅ 多关卡系统（第二关开始随机地图）
@@ -24,7 +24,7 @@
 | S / ↓ | 向下移动 |
 | A / ← | 向左移动 |
 | D / → | 向右移动 |
-| 空格 | 射击 |
+| 空格 | 射击 / 开始游戏 |
 | P | 暂停/继续 |
 
 ## 游戏规则
@@ -36,36 +36,47 @@
 
 ## 运行方式
 
-### 本地开发服务器
+### 开发与运行
 
 ```bash
-# 使用Python启动HTTP服务器
-python -m http.server 8080
+# 创建虚拟环境
+python -m virtualenv .venv --no-download --no-seed
 
-# 或使用Node.js
-npx serve -p 8080
+# 激活虚拟环境（Windows）
+.venv\Scripts\activate
+
+# 安装依赖
+pip install pgzero
+
+# 运行游戏
+pgzrun main.py
 ```
 
-然后在浏览器中访问 `http://localhost:8080`
+### 使用pytest运行测试
 
-### 直接打开
+```bash
+# 安装测试依赖
+pip install pytest
 
-直接在浏览器中打开 `index.html` 文件即可运行。
+# 运行测试
+pytest
+```
 
 ## 技术栈
 
-- HTML5 Canvas
-- JavaScript (ES6+)
-- Web Audio API（音效）
-- CSS3
+- Python 3.10+
+- Pygame Zero 1.2+
+- Pygame 2.0+
+- NumPy
 
 ## 文件结构
 
 ```
 BattleCity/
-├── index.html          # 游戏主文件（包含所有逻辑）
+├── main.py              # 游戏主文件（包含所有逻辑）
 ├── .gitignore          # Git忽略文件
 ├── README.md           # 项目说明
+├── .venv/              # 虚拟环境（自动生成）
 └── images/             # 游戏资源图片
     ├── tank_player_*.png    # 玩家坦克（四个方向）
     ├── tank_basic_*.png     # 敌方坦克（四个方向）
@@ -75,8 +86,7 @@ BattleCity/
     ├── tile_grass.png       # 草地
     ├── tile_water.png       # 水
     ├── base.png             # 基地
-    ├── base_destroyed.png   # 被摧毁的基地
-    └── explosion.png        # 爆炸效果
+    └── base_destroyed.png   # 被摧毁的基地
 ```
 
 ## 游戏截图
@@ -87,7 +97,7 @@ BattleCity/
 
 ## 开发说明
 
-游戏所有逻辑都在 `index.html` 单个文件中，无需构建工具即可运行。
+游戏所有逻辑都在 `main.py` 文件中，使用Pygame Zero框架开发。
 
 ### 关键常量
 
@@ -107,9 +117,8 @@ BattleCity/
 
 ## 历史版本
 
-- 初始版本：实现基本游戏功能
-- v2.0：修复碰撞检测，优化地图布局
-- v3.0：添加音效系统、子弹碰撞抵消、坦克对齐
+- 初始版本：HTML5 Canvas实现
+- v2.0：迁移到Pygame Zero框架
 
 ## 许可证
 

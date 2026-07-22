@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Battle City - FC坦克大战</title>
+    <title>Battle City - Classic Tank Game</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -119,33 +119,33 @@
         <div id="sidebar">
             <h3>1P</h3>
             <div class="lives-display" id="livesDisplay"></div>
-            <div class="info">分数</div>
+            <div class="info">Score</div>
             <div class="info" id="scoreDisplay">0</div>
-            <h3>敌军</h3>
+            <h3>Enemies</h3>
             <div class="enemy-count" id="enemyCount"></div>
-            <div class="info" style="margin-top:16px">关卡</div>
+            <div class="info" style="margin-top:16px">Stage</div>
             <div class="info" id="stageDisplay">1</div>
         </div>
     </div>
 
     <div id="startScreen" class="overlay">
         <h1>BATTLE CITY</h1>
-        <p>经典FC坦克大战复刻版</p>
-        <p>WASD 移动 | 空格 射击</p>
-        <p>保护基地，消灭所有敌人</p>
-        <button onclick="startGame()">开始游戏</button>
+        <p>Classic FC Tank Battle Remake</p>
+        <p>WASD Move | SPACE Shoot</p>
+        <p>Protect your base, destroy all enemies</p>
+        <button onclick="startGame()">Start Game</button>
     </div>
 
     <div id="gameOverScreen" class="overlay hidden">
         <h1 id="endTitle">GAME OVER</h1>
         <p id="endReason"></p>
-        <p>最终分数: <span id="finalScore">0</span></p>
-        <button onclick="restartGame()">重新开始</button>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <button onclick="restartGame()">Restart</button>
     </div>
 
     <div id="stageScreen" class="overlay hidden">
         <h1>STAGE <span id="stageNum">1</span></h1>
-        <p>准备好了吗？</p>
+        <p>Ready?</p>
     </div>
 
 <script>
@@ -607,7 +607,7 @@ function checkBulletMapCollision(bullet) {
         if (baseAlive) {
             baseAlive = false;
             explosions.push(new Explosion(BASE_COL * TILE, BASE_ROW * TILE, 'big'));
-            gameOver('基地被摧毁！');
+            gameOver('Base destroyed!');
         }
         return true;
     }
@@ -640,7 +640,7 @@ function checkBulletTankCollision(bullet) {
             lives--;
             updateUI();
             if (lives <= 0) {
-                gameOver('你被打败了！');
+                gameOver('You were defeated!');
             } else {
                 setTimeout(() => respawnPlayer(), 1500);
             }
@@ -918,7 +918,7 @@ function draw() {
         ctx.textAlign = 'center';
         ctx.fillText('PAUSED', CANVAS_W / 2, CANVAS_H / 2);
         ctx.font = '12px "Courier New", monospace';
-        ctx.fillText('按 P 继续', CANVAS_W / 2, CANVAS_H / 2 + 24);
+        ctx.fillText('Press P to Continue', CANVAS_W / 2, CANVAS_H / 2 + 24);
     }
 }
 
@@ -1026,7 +1026,7 @@ window.onload = () => {
     ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     loadImages().then(() => {
-        console.log('图片加载完成');
+        console.log('Images loaded');
     });
 };
 </script>

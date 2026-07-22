@@ -6,3 +6,5 @@ Thumbs.db
 dist/
 build/
 *.tmp
+.venv/
+__pycache__/
