@@ -8,7 +8,7 @@ import { Bullet } from './bullet.js';
 import { Tank } from './tank.js';
 import { game, canvas, ctx } from './gameState.js';
 import { checkBulletBulletCollision } from './collision.js';
-import { updateUI, stageComplete } from './ui.js';
+import { updateUI, stageComplete, gameOver } from './ui.js';
 
 export function spawnEnemy(): void {
     if (game.spawnedEnemies >= game.totalEnemies) return;
@@ -35,36 +35,42 @@ export function updateEnemies(): void {
         e.moving = true;
 
         const oldDir: Direction = e.dir;
-        if (Math.random() < 0.008) {
-            const opposite: Direction = ((e.dir + 2) % 4) as Direction;
-            const choices: Direction[] = [0, 1, 2, 3].filter(d => d !== opposite) as Direction[];
-            e.dir = choices[Math.floor(Math.random() * choices.length)];
-        }
-
-        if (game.player && game.player.alive && Math.random() < 0.06) {
-            const dx: number = game.player.x - e.x;
-            const dy: number = game.player.y - e.y;
-            const opposite: Direction = ((e.dir + 2) % 4) as Direction;
-            let newDir: Direction = e.dir;
-            if (Math.abs(dx) > Math.abs(dy)) {
-                newDir = dx > 0 ? DIR.RIGHT : DIR.LEFT;
-            } else {
-                newDir = dy > 0 ? DIR.DOWN : DIR.UP;
+        if (e.turnCooldown <= 0) {
+            if (Math.random() < 0.008) {
+                const opposite: Direction = ((e.dir + 2) % 4) as Direction;
+                const choices: Direction[] = [0, 1, 2, 3].filter(d => d !== opposite) as Direction[];
+                e.dir = choices[Math.floor(Math.random() * choices.length)];
             }
-            if (newDir !== opposite) e.dir = newDir;
+
+            if (game.player && game.player.alive && Math.random() < 0.06) {
+                const dx: number = game.player.x - e.x;
+                const dy: number = game.player.y - e.y;
+                const opposite: Direction = ((e.dir + 2) % 4) as Direction;
+                let newDir: Direction = e.dir;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    newDir = dx > 0 ? DIR.RIGHT : DIR.LEFT;
+                } else {
+                    newDir = dy > 0 ? DIR.DOWN : DIR.UP;
+                }
+                if (newDir !== opposite) e.dir = newDir;
+            }
         }
 
         // 转向时对齐垂直轴
         if (e.dir !== oldDir) {
+            e.turnCooldown = 60;
             e.snapToGrid();
         }
 
         e.move();
 
         if (e.x === e._lastX && e.y === e._lastY) {
-            const opposite: Direction = ((e.dir + 2) % 4) as Direction;
-            const choices: Direction[] = [0, 1, 2, 3].filter(d => d !== e.dir && d !== opposite) as Direction[];
-            e.dir = choices[Math.floor(Math.random() * choices.length)];
+            if (e.turnCooldown <= 0) {
+                const opposite: Direction = ((e.dir + 2) % 4) as Direction;
+                const choices: Direction[] = [0, 1, 2, 3].filter(d => d !== e.dir && d !== opposite) as Direction[];
+                e.dir = choices[Math.floor(Math.random() * choices.length)];
+                e.turnCooldown = 60;
+            }
         }
         e._lastX = e.x;
         e._lastY = e.y;
@@ -76,6 +82,14 @@ export function updateEnemies(): void {
 }
 
 export function update(): void {
+    if (game.gameOverDelay > 0) {
+        game.gameOverDelay--;
+        if (game.player) game.player.moving = false;
+        if (game.gameOverDelay <= 0) {
+            gameOver('Base destroyed!');
+        }
+        return;
+    }
     if (game.gameState !== 'playing' || game.paused) return;
 
     game.spawnTimer++;

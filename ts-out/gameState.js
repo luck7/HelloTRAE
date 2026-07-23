@@ -14,7 +14,8 @@ export const game = {
     keys: {},
     gameLoopId: null,
     baseAlive: true,
-    paused: false
+    paused: false,
+    gameOverDelay: 0
 };
 export let canvas;
 export let ctx;

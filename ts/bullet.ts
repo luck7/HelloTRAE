@@ -41,7 +41,9 @@ export class Bullet {
 
         if (this.x < 0 || this.y < 0 || this.x + this.width > CANVAS_W || this.y + this.height > CANVAS_H) {
             this.alive = false;
-            game.explosions.push(new Explosion(this.x, this.y, 'small'));
+            const ex: number = this.x + BULLET_SIZE / 2 - TILE / 2;
+            const ey: number = this.y + BULLET_SIZE / 2 - TILE / 2;
+            game.explosions.push(new Explosion(ex, ey, 'small'));
             playExplosionSound();
             return;
         }

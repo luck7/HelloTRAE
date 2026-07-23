@@ -46,6 +46,7 @@ export function resetGame(): void {
     game.score = 0;
     game.lives = 3;
     game.stage = 1;
+    game.gameOverDelay = 0;
     resetStage();
 }
 

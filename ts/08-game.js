@@ -24,6 +24,7 @@ let keys = {};
 let gameLoopId = null;
 let baseAlive = true;
 let paused = false;
+let gameOverDelay = 0;
 function respawnPlayer() {
     if (lives > 0) {
         player = new Tank(4 * TILE, 12 * TILE, DIR.UP, true);
@@ -54,33 +55,39 @@ function updateEnemies() {
             continue;
         e.moving = true;
         const oldDir = e.dir;
-        if (Math.random() < 0.008) {
-            const opposite = ((e.dir + 2) % 4);
-            const choices = [0, 1, 2, 3].filter(d => d !== opposite);
-            e.dir = choices[Math.floor(Math.random() * choices.length)];
-        }
-        if (player && player.alive && Math.random() < 0.06) {
-            const dx = player.x - e.x;
-            const dy = player.y - e.y;
-            const opposite = ((e.dir + 2) % 4);
-            let newDir = e.dir;
-            if (Math.abs(dx) > Math.abs(dy)) {
-                newDir = dx > 0 ? DIR.RIGHT : DIR.LEFT;
+        if (e.turnCooldown <= 0) {
+            if (Math.random() < 0.008) {
+                const opposite = ((e.dir + 2) % 4);
+                const choices = [0, 1, 2, 3].filter(d => d !== opposite);
+                e.dir = choices[Math.floor(Math.random() * choices.length)];
             }
-            else {
-                newDir = dy > 0 ? DIR.DOWN : DIR.UP;
+            if (player && player.alive && Math.random() < 0.06) {
+                const dx = player.x - e.x;
+                const dy = player.y - e.y;
+                const opposite = ((e.dir + 2) % 4);
+                let newDir = e.dir;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    newDir = dx > 0 ? DIR.RIGHT : DIR.LEFT;
+                }
+                else {
+                    newDir = dy > 0 ? DIR.DOWN : DIR.UP;
+                }
+                if (newDir !== opposite)
+                    e.dir = newDir;
             }
-            if (newDir !== opposite)
-                e.dir = newDir;
         }
         if (e.dir !== oldDir) {
+            e.turnCooldown = 60;
             e.snapToGrid();
         }
         e.move();
         if (e.x === e._lastX && e.y === e._lastY) {
-            const opposite = ((e.dir + 2) % 4);
-            const choices = [0, 1, 2, 3].filter(d => d !== e.dir && d !== opposite);
-            e.dir = choices[Math.floor(Math.random() * choices.length)];
+            if (e.turnCooldown <= 0) {
+                const opposite = ((e.dir + 2) % 4);
+                const choices = [0, 1, 2, 3].filter(d => d !== e.dir && d !== opposite);
+                e.dir = choices[Math.floor(Math.random() * choices.length)];
+                e.turnCooldown = 60;
+            }
         }
         e._lastX = e.x;
         e._lastY = e.y;
@@ -90,6 +97,15 @@ function updateEnemies() {
     }
 }
 function update() {
+    if (gameOverDelay > 0) {
+        gameOverDelay--;
+        if (player)
+            player.moving = false;
+        if (gameOverDelay <= 0) {
+            gameOver('Base destroyed!');
+        }
+        return;
+    }
     if (gameState !== 'playing' || paused)
         return;
     spawnTimer++;

@@ -16,6 +16,7 @@ let keys = {};
 let gameLoopId = null;
 let baseAlive = true;
 let paused = false;
+let gameOverDelay = 0;
 
 // ==================== 游戏逻辑 ====================
 function respawnPlayer() {
@@ -51,29 +52,32 @@ function updateEnemies() {
         e.moving = true;
         const oldDir = e.dir;
 
-        // 低概率随机转向，且不会直接掉头（除非被堵住）
-        if (Math.random() < 0.008) {
-            const opposite = (e.dir + 2) % 4;
-            const choices = [0, 1, 2, 3].filter(d => d !== opposite);
-            e.dir = choices[Math.floor(Math.random() * choices.length)];
-        }
-
-        // 追踪玩家概率降低，且避免掉头
-        if (player && player.alive && Math.random() < 0.06) {
-            const dx = player.x - e.x;
-            const dy = player.y - e.y;
-            const opposite = (e.dir + 2) % 4;
-            let newDir = e.dir;
-            if (Math.abs(dx) > Math.abs(dy)) {
-                newDir = dx > 0 ? DIR.RIGHT : DIR.LEFT;
-            } else {
-                newDir = dy > 0 ? DIR.DOWN : DIR.UP;
+        if (e.turnCooldown <= 0) {
+            // 低概率随机转向，且不会直接掉头（除非被堵住）
+            if (Math.random() < 0.008) {
+                const opposite = (e.dir + 2) % 4;
+                const choices = [0, 1, 2, 3].filter(d => d !== opposite);
+                e.dir = choices[Math.floor(Math.random() * choices.length)];
             }
-            if (newDir !== opposite) e.dir = newDir;
+
+            // 追踪玩家概率降低，且避免掉头
+            if (player && player.alive && Math.random() < 0.06) {
+                const dx = player.x - e.x;
+                const dy = player.y - e.y;
+                const opposite = (e.dir + 2) % 4;
+                let newDir = e.dir;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    newDir = dx > 0 ? DIR.RIGHT : DIR.LEFT;
+                } else {
+                    newDir = dy > 0 ? DIR.DOWN : DIR.UP;
+                }
+                if (newDir !== opposite) e.dir = newDir;
+            }
         }
 
         // 转向时对齐垂直轴
         if (e.dir !== oldDir) {
+            e.turnCooldown = 60;
             e.snapToGrid();
         }
 
@@ -81,9 +85,12 @@ function updateEnemies() {
 
         // 撞墙时换方向（避免卡住）
         if (e.x === e._lastX && e.y === e._lastY) {
-            const opposite = (e.dir + 2) % 4;
-            const choices = [0, 1, 2, 3].filter(d => d !== e.dir && d !== opposite);
-            e.dir = choices[Math.floor(Math.random() * choices.length)];
+            if (e.turnCooldown <= 0) {
+                const opposite = (e.dir + 2) % 4;
+                const choices = [0, 1, 2, 3].filter(d => d !== e.dir && d !== opposite);
+                e.dir = choices[Math.floor(Math.random() * choices.length)];
+                e.turnCooldown = 60;
+            }
         }
         e._lastX = e.x;
         e._lastY = e.y;
@@ -95,6 +102,14 @@ function updateEnemies() {
 }
 
 function update() {
+    if (gameOverDelay > 0) {
+        gameOverDelay--;
+        if (player) player.moving = false;
+        if (gameOverDelay <= 0) {
+            gameOver('Base destroyed!');
+        }
+        return;
+    }
     if (gameState !== 'playing' || paused) return;
 
     spawnTimer++;

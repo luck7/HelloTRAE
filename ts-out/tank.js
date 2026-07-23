@@ -19,6 +19,7 @@ export class Tank {
         this.blinkTimer = 0;
         this._lastX = x;
         this._lastY = y;
+        this.turnCooldown = 0;
     }
     getImage() {
         const prefix = this.isPlayer ? 'player' : 'enemy';
@@ -30,6 +31,8 @@ export class Tank {
             return;
         if (this.shootCooldown > 0)
             this.shootCooldown--;
+        if (this.turnCooldown > 0)
+            this.turnCooldown--;
         if (this.invincible > 0) {
             this.invincible--;
             this.blinkTimer++;

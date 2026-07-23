@@ -33,6 +33,7 @@ function resetGame() {
     score = 0;
     lives = 3;
     stage = 1;
+    gameOverDelay = 0;
     resetStage();
 }
 

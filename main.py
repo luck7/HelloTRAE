@@ -56,6 +56,7 @@ base_alive = True
 game_state = 'menu'
 paused = False
 stage_transition_timer = 0
+gameover_delay = 0
 
 class Tank:
     def __init__(self, x, y, dir, is_player=False):
@@ -73,6 +74,7 @@ class Tank:
         self.blink_timer = 0
         self._lastX = x
         self._lastY = y
+        self.turn_cooldown = 0
 
     def get_image(self):
         prefix = 'tank_player' if self.is_player else 'tank_basic'
@@ -84,6 +86,8 @@ class Tank:
             return
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
+        if self.turn_cooldown > 0:
+            self.turn_cooldown -= 1
         if self.invincible > 0:
             self.invincible -= 1
             self.blink_timer += 1
@@ -218,7 +222,9 @@ class Bullet:
 
         if self.x < 0 or self.y < 0 or self.x + self.width > SCREEN_W or self.y + self.height > SCREEN_H:
             self.alive = False
-            explosions.append(Explosion(self.x, self.y, 'small'))
+            ex = self.x + BULLET_SIZE // 2 - TILE // 2
+            ey = self.y + BULLET_SIZE // 2 - TILE // 2
+            explosions.append(Explosion(ex, ey, 'small'))
             return
 
         if check_bullet_map_collision(self):
@@ -323,7 +329,9 @@ def check_bullet_map_collision(bullet):
         for cx in range(left, right + 1):
             if cy < 0 or cy >= MAP_H or cx < 0 or cx >= MAP_W:
                 bullet.alive = False
-                explosions.append(Explosion(bullet.x, bullet.y, 'small'))
+                ex = bullet.x + BULLET_SIZE // 2 - TILE // 2
+                ey = bullet.y + BULLET_SIZE // 2 - TILE // 2
+                explosions.append(Explosion(ex, ey, 'small'))
                 return True
             tile = map_data[cy][cx]
             if tile == TERRAIN_BRICK:
@@ -338,11 +346,10 @@ def check_bullet_map_collision(bullet):
 
     if right >= BASE_COL and left <= BASE_COL and bottom >= BASE_ROW and top <= BASE_ROW:
         bullet.alive = False
-        global base_alive
+        global base_alive, gameover_delay
         if base_alive:
             base_alive = False
-            explosions.append(Explosion(BASE_COL * TILE, BASE_ROW * TILE, 'big'))
-            game_over('Base destroyed!')
+            gameover_delay = 180
         return True
 
     return False
@@ -460,33 +467,37 @@ def update_enemies():
         e.moving = True
         old_dir = e.dir
 
-        if random.random() < 0.008:
-            opposite = (e.dir + 2) % 4
-            choices = [d for d in [0, 1, 2, 3] if d != opposite]
-            e.dir = choices[random.randint(0, len(choices) - 1)]
+        if e.turn_cooldown <= 0:
+            if random.random() < 0.008:
+                opposite = (e.dir + 2) % 4
+                choices = [d for d in [0, 1, 2, 3] if d != opposite]
+                e.dir = choices[random.randint(0, len(choices) - 1)]
 
-        if player and player.alive and random.random() < 0.06:
-            dx = player.x - e.x
-            dy = player.y - e.y
-            opposite = (e.dir + 2) % 4
-            new_dir = e.dir
-            if abs(dx) > abs(dy):
-                new_dir = DIR_RIGHT if dx > 0 else DIR_LEFT
-            else:
-                new_dir = DIR_DOWN if dy > 0 else DIR_UP
-            if new_dir != opposite:
-                e.dir = new_dir
+            if player and player.alive and random.random() < 0.06:
+                dx = player.x - e.x
+                dy = player.y - e.y
+                opposite = (e.dir + 2) % 4
+                new_dir = e.dir
+                if abs(dx) > abs(dy):
+                    new_dir = DIR_RIGHT if dx > 0 else DIR_LEFT
+                else:
+                    new_dir = DIR_DOWN if dy > 0 else DIR_UP
+                if new_dir != opposite:
+                    e.dir = new_dir
 
         # 转向时对齐垂直轴
         if e.dir != old_dir:
+            e.turn_cooldown = 60
             e.snap_to_grid()
 
         e.move()
 
         if e.x == e._lastX and e.y == e._lastY:
-            opposite = (e.dir + 2) % 4
-            choices = [d for d in [0, 1, 2, 3] if d != e.dir and d != opposite]
-            e.dir = choices[random.randint(0, len(choices) - 1)]
+            if e.turn_cooldown <= 0:
+                opposite = (e.dir + 2) % 4
+                choices = [d for d in [0, 1, 2, 3] if d != e.dir and d != opposite]
+                e.dir = choices[random.randint(0, len(choices) - 1)]
+                e.turn_cooldown = 60
         e._lastX = e.x
         e._lastY = e.y
 
@@ -494,7 +505,15 @@ def update_enemies():
             e.shoot()
 
 def update():
-    global spawn_timer, game_state, stage_transition_timer, bullets, explosions, enemies
+    global spawn_timer, game_state, stage_transition_timer, bullets, explosions, enemies, gameover_delay
+
+    if gameover_delay > 0:
+        gameover_delay -= 1
+        if player:
+            player.moving = False
+        if gameover_delay <= 0:
+            game_over('Base destroyed!')
+        return
 
     if game_state == 'stageTransition':
         stage_transition_timer -= 1
@@ -556,6 +575,8 @@ def update():
 
 def draw():
     screen.fill((0, 0, 0))
+    # 右侧状态栏底色
+    screen.draw.filled_rect(Rect(SCREEN_W, 0, 120, SCREEN_H), (99, 99, 98))
 
     if game_state == 'menu':
         screen.draw.filled_rect(Rect(0, 0, SCREEN_W, SCREEN_H), (0, 0, 0, 224))
@@ -648,10 +669,11 @@ def game_over(reason):
     game_state = 'gameover'
 
 def reset_game():
-    global score, lives, stage
+    global score, lives, stage, gameover_delay
     score = 0
     lives = 3
     stage = 1
+    gameover_delay = 0
     reset_stage()
 
 def reset_stage():

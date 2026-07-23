@@ -22,6 +22,7 @@ export class Tank {
     blinkTimer: number;
     _lastX: number;
     _lastY: number;
+    turnCooldown: number;
 
     constructor(x: number, y: number, dir: Direction, isPlayer: boolean = false) {
         this.x = x;
@@ -38,6 +39,7 @@ export class Tank {
         this.blinkTimer = 0;
         this._lastX = x;
         this._lastY = y;
+        this.turnCooldown = 0;
     }
 
     getImage(): HTMLImageElement | null {
@@ -49,6 +51,7 @@ export class Tank {
     update(): void {
         if (!this.alive) return;
         if (this.shootCooldown > 0) this.shootCooldown--;
+        if (this.turnCooldown > 0) this.turnCooldown--;
         if (this.invincible > 0) {
             this.invincible--;
             this.blinkTimer++;

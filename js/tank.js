@@ -13,6 +13,7 @@ class Tank {
         this.shootCooldown = 0;
         this.invincible = isPlayer ? 180 : 0;
         this.blinkTimer = 0;
+        this.turnCooldown = 0;
     }
 
     getImage() {
@@ -24,6 +25,7 @@ class Tank {
     update() {
         if (!this.alive) return;
         if (this.shootCooldown > 0) this.shootCooldown--;
+        if (this.turnCooldown > 0) this.turnCooldown--;
         if (this.invincible > 0) {
             this.invincible--;
             this.blinkTimer++;

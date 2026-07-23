@@ -53,7 +53,9 @@ export function checkBulletMapCollision(bullet) {
         for (let cx = left; cx <= right; cx++) {
             if (cy < 0 || cy >= MAP_H || cx < 0 || cx >= MAP_W) {
                 bullet.alive = false;
-                game.explosions.push(new Explosion(bullet.x, bullet.y, 'small'));
+                const ex = bullet.x + BULLET_SIZE / 2 - TILE / 2;
+                const ey = bullet.y + BULLET_SIZE / 2 - TILE / 2;
+                game.explosions.push(new Explosion(ex, ey, 'small'));
                 playExplosionSound();
                 return true;
             }
@@ -77,8 +79,7 @@ export function checkBulletMapCollision(bullet) {
         bullet.alive = false;
         if (game.baseAlive) {
             game.baseAlive = false;
-            game.explosions.push(new Explosion(BASE_COL * TILE, BASE_ROW * TILE, 'big'));
-            gameOver('Base destroyed!');
+            game.gameOverDelay = 180;
         }
         return true;
     }

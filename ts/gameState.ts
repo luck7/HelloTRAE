@@ -20,6 +20,7 @@ export interface GameStateData {
     gameLoopId: number | null;
     baseAlive: boolean;
     paused: boolean;
+    gameOverDelay: number;
 }
 
 export const game: GameStateData = {
@@ -38,7 +39,8 @@ export const game: GameStateData = {
     keys: {},
     gameLoopId: null,
     baseAlive: true,
-    paused: false
+    paused: false,
+    gameOverDelay: 0
 };
 
 export let canvas: HTMLCanvasElement;

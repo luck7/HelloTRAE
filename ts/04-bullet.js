@@ -28,7 +28,9 @@ class Bullet {
             this.x -= this.speed;
         if (this.x < 0 || this.y < 0 || this.x + this.width > CANVAS_W || this.y + this.height > CANVAS_H) {
             this.alive = false;
-            explosions.push(new Explosion(this.x, this.y, 'small'));
+            const ex = this.x + BULLET_SIZE / 2 - TILE / 2;
+            const ey = this.y + BULLET_SIZE / 2 - TILE / 2;
+            explosions.push(new Explosion(ex, ey, 'small'));
             playExplosionSound();
             return;
         }
