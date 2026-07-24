@@ -75,11 +75,18 @@ def check_bullet_map_collision(bullet):
             if tile == TERRAIN_BRICK:
                 map_data[cy][cx] = TERRAIN_EMPTY
                 bullet.alive = False
-                explosions.append(Explosion(cx * TILE, cy * TILE, 'small'))
+                explosions.append(Explosion(cx * TILE, cy * TILE, 'brick'))
                 return True
             elif tile == TERRAIN_STEEL:
                 bullet.alive = False
-                explosions.append(Explosion(cx * TILE, cy * TILE, 'small'))
+                if bullet.dir == DIR_UP:
+                    explosions.append(Explosion(cx * TILE, cy * TILE + TILE // 2, 'small'))
+                elif bullet.dir == DIR_DOWN:
+                    explosions.append(Explosion(cx * TILE, cy * TILE - TILE // 2, 'small'))
+                elif bullet.dir == DIR_LEFT:
+                    explosions.append(Explosion(cx * TILE + TILE // 2, cy * TILE, 'small'))
+                else:  # DIR_RIGHT
+                    explosions.append(Explosion(cx * TILE - TILE // 2, cy * TILE, 'small'))
                 return True
 
     if right >= BASE_COL and left <= BASE_COL and bottom >= BASE_ROW and top <= BASE_ROW:
@@ -129,11 +136,8 @@ def check_bullet_bullet_collision():
             if rect_overlap(pb.x, pb.y, pb.width, pb.height, eb.x, eb.y, eb.width, eb.height):
                 pb.alive = False
                 eb.alive = False
-                explosions.append(Explosion(
-                    (pb.x + eb.x) / 2,
-                    (pb.y + eb.y) / 2,
-                    'small'
-                ))
+                explosions.append(Explosion(pb.x, pb.y, 'small', BULLET_SIZE))
+                explosions.append(Explosion(eb.x, eb.y, 'small', BULLET_SIZE))
 
 
 def init_map():

@@ -1,12 +1,14 @@
 from constants import *
-from pgzero.builtins import sounds
+from pgzero.builtins import sounds, images
+import pygame
 
 
 class Explosion:
-    def __init__(self, x, y, size='normal'):
+    def __init__(self, x, y, size='normal', obj_size=TILE):
         self.x = x
         self.y = y
         self.size = size
+        self.obj_size = obj_size
         self.frame = 0
         self.max_frame = 8
         self.alive = True
@@ -17,6 +19,8 @@ class Explosion:
             sounds.hit.play()
         elif size == 'destroy':
             sounds.destroy.play()
+        elif size == 'brick':
+            sounds.tone.play()
 
     def update(self):
         self.timer += 1
@@ -29,24 +33,16 @@ class Explosion:
     def draw(self, screen):
         if not self.alive:
             return
-        scale = 3 if self.size == 'destroy' else (2 if self.size == 'big' else (0.6 if self.size == 'small' else 1))
+        scale = 1 if self.size == 'destroy' else (1 if self.size == 'big' else (0.6 if self.size in ('small', 'brick') else 1))
         progress = self.frame / self.max_frame
-        alpha = 1 - progress
-        draw_size = TILE * scale
-        if self.frame < 3:
-            screen.draw.filled_circle(
-                (self.x + TILE/2, self.y + TILE/2),
-                (8 + self.frame * 4) * scale,
-                (255, int(120 + self.frame * 15), 0)
-            )
-            screen.draw.circle(
-                (self.x + TILE/2, self.y + TILE/2),
-                (8 + self.frame * 4) * scale + 4,
-                (255, 200, 0)
-            )
-        else:
-            screen.draw.filled_circle(
-                (self.x + TILE/2, self.y + TILE/2),
-                (8 + self.frame * 4) * scale,
-                (255, int(120 + self.frame * 15), 0)
-            )
+        img = images.explosion
+        draw_size = int(TANK_SIZE * scale * (0.5 + progress * 0.5))
+        if draw_size < 4:
+            return
+        scaled = pygame.transform.scale(img, (draw_size, draw_size))
+        scaled.set_alpha(int(255 * (1 - progress * 0.7)))
+        cx = self.x + self.obj_size / 2
+        cy = self.y + self.obj_size / 2
+        ox = int(cx - draw_size / 2)
+        oy = int(cy - draw_size / 2)
+        screen.blit(scaled, (ox, oy))
