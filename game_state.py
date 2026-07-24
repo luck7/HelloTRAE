@@ -88,6 +88,7 @@ def check_bullet_map_collision(bullet):
         if base_alive:
             base_alive = False
             gameover_delay = 180
+            explosions.append(Explosion(BASE_COL * TILE, BASE_ROW * TILE, 'destroy'))
         return True
 
     return False
@@ -101,7 +102,7 @@ def check_bullet_tank_collision(bullet):
                                         e.x, e.y, e.width, e.height):
                 bullet.alive = False
                 e.alive = False
-                explosions.append(Explosion(e.x, e.y, 'normal'))
+                explosions.append(Explosion(e.x, e.y, 'big'))
                 score += 100
                 return
     else:
