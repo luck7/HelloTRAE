@@ -1,4 +1,5 @@
 import random
+import pygame
 from constants import *
 from tank import Tank
 from bullet import Bullet
@@ -37,6 +38,9 @@ def stage_complete():
     gs.game_state = 'stageTransition'
     gs.stage += 1
     gs.stage_transition_timer = 120
+    if gs.player:
+        gs.player.stop_run_sound()
+    pygame.mixer.stop()
 
 
 def spawn_enemy():

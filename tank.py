@@ -1,8 +1,18 @@
 import math
+import os
+import pygame
 from constants import *
 from game_state import check_map_collision, check_tank_collision
 import game_state
 from bullet import Bullet
+
+_run_sound = None
+
+def _get_run_sound():
+    global _run_sound
+    if _run_sound is None:
+        _run_sound = pygame.mixer.Sound(os.path.join('sounds', 'run.wav'))
+    return _run_sound
 
 
 class Tank:
@@ -23,6 +33,7 @@ class Tank:
         self._lastY = y
         self.turn_cooldown = 0
         self.prev_dir = dir
+        self.run_channel = None
 
     def get_image(self):
         prefix = 'tank_player' if self.is_player else 'tank_basic'
@@ -31,6 +42,7 @@ class Tank:
 
     def update(self):
         if not self.alive:
+            self.stop_run_sound()
             return
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
@@ -39,6 +51,20 @@ class Tank:
         if self.invincible > 0:
             self.invincible -= 1
             self.blink_timer += 1
+        if self.is_player:
+            if self.moving:
+                self.start_run_sound()
+            else:
+                self.stop_run_sound()
+
+    def start_run_sound(self):
+        if self.run_channel is None or not self.run_channel.get_busy():
+            self.run_channel = _get_run_sound().play(-1)
+
+    def stop_run_sound(self):
+        if self.run_channel is not None:
+            self.run_channel.stop()
+            self.run_channel = None
 
     def snap_to_grid(self):
         if self.dir in (DIR_UP, DIR_DOWN):

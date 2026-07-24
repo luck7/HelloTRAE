@@ -118,6 +118,7 @@ def check_bullet_tank_collision(bullet):
                         player.x, player.y, player.width, player.height):
             bullet.alive = False
             player.alive = False
+            player.stop_run_sound()
             explosions.append(Explosion(player.x, player.y, 'big'))
             lives -= 1
             if lives <= 0:
