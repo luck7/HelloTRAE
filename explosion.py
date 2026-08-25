@@ -14,13 +14,13 @@ class Explosion:
         self.alive = True
         self.timer = 0
         if size == 'big':
-            sounds.boom.play()
+            sounds.enemy_explode.play()
         elif size == 'small':
-            sounds.hit.play()
+            sounds.bullet_hit_wall.play()
         elif size == 'destroy':
-            sounds.destroy.play()
+            sounds.player_explode.play()
         elif size == 'brick':
-            sounds.tone.play()
+            sounds.destory_wall.play()
 
     def update(self):
         self.timer += 1

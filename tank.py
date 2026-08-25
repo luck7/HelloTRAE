@@ -11,7 +11,7 @@ _run_sound = None
 def _get_run_sound():
     global _run_sound
     if _run_sound is None:
-        _run_sound = pygame.mixer.Sound(os.path.join('sounds', 'run.wav'))
+        _run_sound = pygame.mixer.Sound(os.path.join('sounds', 'player_move_sound.wav'))
     return _run_sound
 
 

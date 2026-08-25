@@ -2,15 +2,16 @@
 setlocal
 
 set "VENV=%~dp0.venv"
-set "PGZRUN=%VENV%\Scripts\pgzrun.exe"
+set "PYTHON=%VENV%\Scripts\python.exe"
 
-if not exist "%PGZRUN%" (
-    echo ERROR: pgzrun not found. Trying pip install...
-    "%VENV%\Scripts\pip.exe" install pgzero
+if not exist "%PYTHON%" (
+    echo ERROR: venv python not found at "%PYTHON%".
+    pause
+    exit /b 1
 )
 
 echo Starting Battle City...
-"%PGZRUN%" "%~dp0main.py"
+"%PYTHON%" -m pgzero "%~dp0main.py"
 
 if errorlevel 1 (
     echo Game failed to run.
