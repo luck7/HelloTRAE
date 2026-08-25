@@ -1,5 +1,5 @@
+import pgzero, pgzrun, pygame
 import random
-import pygame
 from constants import *
 from tank import Tank
 from bullet import Bullet
@@ -267,3 +267,7 @@ def on_key_down(key):
         elif gs.game_state == 'gameover':
             gs.game_state = 'playing'
             reset_game()
+
+
+# Tell Pygame Zero to start - this line is only required when running the game from an IDE such as IDLE or PyCharm
+pgzrun.go()
