@@ -1,15 +1,33 @@
+# Dependencies
 node_modules/
-*.log
-.DS_Store
-Thumbs.db
-.cache/
+.venv/
+
+# Build artifacts
 dist/
 build/
+*.egg-info/
+*.egg
+
+# Python
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.whl
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Misc
+*.log
 *.tmp
-
-
-.venv/
-__pycache__/
-
-
+.cache/
 .qoder/
