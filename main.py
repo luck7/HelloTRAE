@@ -122,7 +122,7 @@ def rect_overlap(x1, y1, w1, h1, x2, y2, w2, h2):
     return x1 < x2 + w2 and x1 + w1 > x2 and y1 < y2 + h2 and y1 + h1 > y2
 
 
-def check_map_collision(x, y, w, h):
+def is_path_clear(x, y, w, h):
     left = int(x // TILE)
     right = int((x + w - 1) // TILE)
     top = int(y // TILE)
@@ -143,7 +143,7 @@ def check_map_collision(x, y, w, h):
     return True
 
 
-def check_tank_collision(self, nx, ny):
+def can_move_to(self, nx, ny):
     sw, sh = self.width, self.height
     if player and player.alive and player != self:
         if rect_overlap(nx, ny, sw, sh, player.x, player.y, player.width, player.height):
@@ -155,7 +155,7 @@ def check_tank_collision(self, nx, ny):
     return True
 
 
-def check_bullet_map_collision(bullet):
+def handle_bullet_map_collision(bullet):
     left = int(bullet.x // TILE)
     right = int((bullet.x + bullet.width - 1) // TILE)
     top = int(bullet.y // TILE)
@@ -199,7 +199,7 @@ def check_bullet_map_collision(bullet):
     return False
 
 
-def check_bullet_tank_collision(bullet):
+def handle_bullet_tank_collision(bullet):
     global score, lives
     if bullet.is_player:
         for e in enemies:
@@ -226,7 +226,7 @@ def check_bullet_tank_collision(bullet):
                 schedule(respawn_player, 1.5)
 
 
-def check_bullet_bullet_collision():
+def handle_bullet_bullet_collision():
     player_bullets = [b for b in bullets if b.alive and b.is_player]
     enemy_bullets = [b for b in bullets if b.alive and not b.is_player]
     for pb in player_bullets:
@@ -326,10 +326,10 @@ class Bullet:
             explosions.append(Explosion(ex, ey, 'small'))
             return
 
-        if check_bullet_map_collision(self):
+        if handle_bullet_map_collision(self):
             return
 
-        check_bullet_tank_collision(self)
+        handle_bullet_tank_collision(self)
 
     def get_image(self):
         dir_str = ['up', 'right', 'down', 'left'][self.dir]
@@ -405,8 +405,8 @@ class Tank:
                 sx = (self.x // HALF_TILE) * HALF_TILE
             else:
                 sx = round(self.x / HALF_TILE) * HALF_TILE
-            if sx != self.x and check_map_collision(sx, self.y, self.width, self.height) and \
-               check_tank_collision(self, sx, self.y):
+            if sx != self.x and is_path_clear(sx, self.y, self.width, self.height) and \
+               can_move_to(self, sx, self.y):
                 self.x = sx
         else:
             if self.prev_dir == DIR_DOWN:
@@ -415,8 +415,8 @@ class Tank:
                 sy = (self.y // HALF_TILE) * HALF_TILE
             else:
                 sy = round(self.y / HALF_TILE) * HALF_TILE
-            if sy != self.y and check_map_collision(self.x, sy, self.width, self.height) and \
-               check_tank_collision(self, self.x, sy):
+            if sy != self.y and is_path_clear(self.x, sy, self.width, self.height) and \
+               can_move_to(self, self.x, sy):
                 self.y = sy
 
     def slide_to_grid(self):
@@ -424,29 +424,29 @@ class Tank:
             ty = (self.y // HALF_TILE) * HALF_TILE
             if self.y != ty:
                 fy = max(self.y - self.speed, ty)
-                if check_map_collision(self.x, fy, self.width, self.height) and \
-                   check_tank_collision(self, self.x, fy):
+                if is_path_clear(self.x, fy, self.width, self.height) and \
+                   can_move_to(self, self.x, fy):
                     self.y = fy
         elif self.dir == DIR_DOWN:
             ty = math.ceil(self.y / HALF_TILE) * HALF_TILE
             if self.y != ty:
                 fy = min(self.y + self.speed, ty)
-                if check_map_collision(self.x, fy, self.width, self.height) and \
-                   check_tank_collision(self, self.x, fy):
+                if is_path_clear(self.x, fy, self.width, self.height) and \
+                   can_move_to(self, self.x, fy):
                     self.y = fy
         elif self.dir == DIR_LEFT:
             tx = (self.x // HALF_TILE) * HALF_TILE
             if self.x != tx:
                 fx = max(self.x - self.speed, tx)
-                if check_map_collision(fx, self.y, self.width, self.height) and \
-                   check_tank_collision(self, fx, self.y):
+                if is_path_clear(fx, self.y, self.width, self.height) and \
+                   can_move_to(self, fx, self.y):
                     self.x = fx
         elif self.dir == DIR_RIGHT:
             tx = math.ceil(self.x / HALF_TILE) * HALF_TILE
             if self.x != tx:
                 fx = min(self.x + self.speed, tx)
-                if check_map_collision(fx, self.y, self.width, self.height) and \
-                   check_tank_collision(self, fx, self.y):
+                if is_path_clear(fx, self.y, self.width, self.height) and \
+                   can_move_to(self, fx, self.y):
                     self.x = fx
 
     def move(self):
@@ -466,10 +466,10 @@ class Tank:
         if nx < 0 or ny < 0 or nx + self.width > SCREEN_W or ny + self.height > SCREEN_H:
             return
 
-        if not check_map_collision(nx, ny, self.width, self.height):
+        if not is_path_clear(nx, ny, self.width, self.height):
             return
 
-        if not check_tank_collision(self, nx, ny):
+        if not can_move_to(self, nx, ny):
             return
 
         self.x = nx
@@ -674,7 +674,7 @@ def update():
 
     for b in bullets:
         b.update()
-    check_bullet_bullet_collision()
+    handle_bullet_bullet_collision()
     bullets[:] = [b for b in bullets if b.alive]
 
     for ex in explosions:
