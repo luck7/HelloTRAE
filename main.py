@@ -52,7 +52,7 @@ HEIGHT = SCREEN_H
 # Explosion (from explosion.py)
 # ======================================================================
 class Explosion:
-    def __init__(self, x, y, size='normal', obj_size=TILE):
+    def __init__(self, x, y, size='normal', obj_size=TILE, play_sound=True):
         self.x = x
         self.y = y
         self.size = size
@@ -61,14 +61,15 @@ class Explosion:
         self.max_frame = 8
         self.alive = True
         self.timer = 0
-        if size == 'big':
-            sounds.enemy_explode.play()
-        elif size == 'small':
-            sounds.bullet_hit_wall.play()
-        elif size == 'destroy':
-            sounds.player_explode.play()
-        elif size == 'brick':
-            sounds.destroy_wall.play()
+        if play_sound:
+            if size == 'big':
+                sounds.enemy_explode.play()
+            elif size == 'small':
+                sounds.bullet_hit_wall.play()
+            elif size == 'destroy':
+                sounds.player_explode.play()
+            elif size == 'brick':
+                sounds.destroy_wall.play()
 
     def update(self):
         self.timer += 1
@@ -114,6 +115,7 @@ game_state = 'menu'
 paused = False
 stage_transition_timer = 0
 gameover_delay = 0
+_enemy_sound_playing = False
 
 # ======================================================================
 # Game state functions (from game_state.py)
@@ -167,33 +169,40 @@ def handle_bullet_map_collision(bullet):
                 bullet.alive = False
                 ex = bullet.x + BULLET_SIZE // 2 - TILE // 2
                 ey = bullet.y + BULLET_SIZE // 2 - TILE // 2
-                explosions.append(Explosion(ex, ey, 'small'))
+                explosions.append(Explosion(ex, ey, 'small', play_sound=bullet.is_player))
                 return True
             tile = map_data[cy][cx]
             if tile == TERRAIN_BRICK:
                 map_data[cy][cx] = TERRAIN_EMPTY
                 bullet.alive = False
-                explosions.append(Explosion(cx * TILE, cy * TILE, 'brick'))
+                explosions.append(Explosion(cx * TILE, cy * TILE, 'brick', play_sound=bullet.is_player))
                 return True
             elif tile == TERRAIN_STEEL:
                 bullet.alive = False
                 if bullet.dir == DIR_UP:
-                    explosions.append(Explosion(cx * TILE, cy * TILE + TILE // 2, 'small'))
+                    explosions.append(Explosion(cx * TILE, cy * TILE + TILE // 2, 'small', play_sound=bullet.is_player))
                 elif bullet.dir == DIR_DOWN:
-                    explosions.append(Explosion(cx * TILE, cy * TILE - TILE // 2, 'small'))
+                    explosions.append(Explosion(cx * TILE, cy * TILE - TILE // 2, 'small', play_sound=bullet.is_player))
                 elif bullet.dir == DIR_LEFT:
-                    explosions.append(Explosion(cx * TILE + TILE // 2, cy * TILE, 'small'))
+                    explosions.append(Explosion(cx * TILE + TILE // 2, cy * TILE, 'small', play_sound=bullet.is_player))
                 else:  # DIR_RIGHT
-                    explosions.append(Explosion(cx * TILE - TILE // 2, cy * TILE, 'small'))
+                    explosions.append(Explosion(cx * TILE - TILE // 2, cy * TILE, 'small', play_sound=bullet.is_player))
                 return True
 
     if right >= BASE_COL and left <= BASE_COL and bottom >= BASE_ROW and top <= BASE_ROW:
         bullet.alive = False
-        global base_alive, gameover_delay
+        global base_alive, gameover_delay, _enemy_sound_playing
         if base_alive:
             base_alive = False
             gameover_delay = 180
             explosions.append(Explosion(BASE_COL * TILE, BASE_ROW * TILE, 'destroy'))
+            # Stop all movement sounds
+            if player:
+                player.stop_run_sound()
+            for e in enemies:
+                e._run_sound_playing = False
+            sounds.enemy_move_sound.stop()
+            _enemy_sound_playing = False
         return True
 
     return False
@@ -234,8 +243,6 @@ def handle_bullet_bullet_collision():
             if rect_overlap(pb.x, pb.y, pb.width, pb.height, eb.x, eb.y, eb.width, eb.height):
                 pb.alive = False
                 eb.alive = False
-                explosions.append(Explosion(pb.x, pb.y, 'small', BULLET_SIZE))
-                explosions.append(Explosion(eb.x, eb.y, 'small', BULLET_SIZE))
 
 
 def init_map():
@@ -323,7 +330,7 @@ class Bullet:
             self.alive = False
             ex = self.x + BULLET_SIZE // 2 - TILE // 2
             ey = self.y + BULLET_SIZE // 2 - TILE // 2
-            explosions.append(Explosion(ex, ey, 'small'))
+            explosions.append(Explosion(ex, ey, 'small', play_sound=self.is_player))
             return
 
         if handle_bullet_map_collision(self):
@@ -381,21 +388,28 @@ class Tank:
         if self.invincible > 0:
             self.invincible -= 1
             self.blink_timer += 1
-        if self.is_player:
-            if self.moving:
-                self.start_run_sound()
-            else:
-                self.stop_run_sound()
+        if self.moving:
+            self.start_run_sound()
+        else:
+            self.stop_run_sound()
 
     def start_run_sound(self):
-        if not self._run_sound_playing:
-            sounds.player_move_sound.set_volume(0.2)
-            sounds.player_move_sound.play(loops=-1)
+        if self.is_player:
+            if not self._run_sound_playing:
+                sounds.player_move_sound.set_volume(0.2)
+                sounds.player_move_sound.play(loops=-1)
+                self._run_sound_playing = True
+        else:
+            # Enemy sound is managed globally, just mark this tank as wanting sound
             self._run_sound_playing = True
 
     def stop_run_sound(self):
-        if self._run_sound_playing:
-            sounds.player_move_sound.stop()
+        if self.is_player:
+            if self._run_sound_playing:
+                sounds.player_move_sound.stop()
+                self._run_sound_playing = False
+        else:
+            # Enemy sound is managed globally, just unmark this tank
             self._run_sound_playing = False
 
     def snap_to_grid(self):
@@ -514,8 +528,15 @@ class Tank:
 # Main game functions (from original main.py)
 # ======================================================================
 def game_over(reason):
-    global game_state
+    global game_state, _enemy_sound_playing
     game_state = 'gameover'
+    # Stop all movement sounds
+    if player:
+        player.stop_run_sound()
+    for e in enemies:
+        e._run_sound_playing = False
+    sounds.enemy_move_sound.stop()
+    _enemy_sound_playing = False
 
 
 def reset_game():
@@ -528,7 +549,7 @@ def reset_game():
 
 
 def reset_stage():
-    global player, enemies, bullets, explosions, spawned_enemies, spawn_timer, base_alive, total_enemies
+    global player, enemies, bullets, explosions, spawned_enemies, spawn_timer, base_alive, total_enemies, _enemy_sound_playing
     init_map()
     player = Tank(4 * TILE, 12 * TILE, DIR_UP, True)
     enemies = []
@@ -538,10 +559,11 @@ def reset_stage():
     spawn_timer = 0
     base_alive = True
     total_enemies = 8 + stage * 2
+    _enemy_sound_playing = False
 
 
 def stage_complete():
-    global game_state, stage, stage_transition_timer
+    global game_state, stage, stage_transition_timer, _enemy_sound_playing
     game_state = 'stageTransition'
     stage += 1
     stage_transition_timer = 120
@@ -549,6 +571,20 @@ def stage_complete():
         player.stop_run_sound()
     sounds.player_move_sound.stop()
     sounds.enemy_move_sound.stop()
+    _enemy_sound_playing = False
+
+
+def update_enemy_sound():
+    global _enemy_sound_playing
+    # Check if any alive enemy is moving
+    any_enemy_moving = any(e.alive and e._run_sound_playing for e in enemies)
+    if any_enemy_moving and not _enemy_sound_playing:
+        sounds.enemy_move_sound.set_volume(0.2)
+        sounds.enemy_move_sound.play(loops=-1)
+        _enemy_sound_playing = True
+    elif not any_enemy_moving and _enemy_sound_playing:
+        sounds.enemy_move_sound.stop()
+        _enemy_sound_playing = False
 
 
 def spawn_enemy():
@@ -618,10 +654,26 @@ def update():
 
     if gameover_delay > 0:
         gameover_delay -= 1
-        if player:
-            player.moving = False
         if gameover_delay <= 0:
             game_over('Base destroyed!')
+            return
+        # Base destroyed: player stops, but enemies continue
+        if player:
+            player.moving = False
+            player.stop_run_sound()
+        # Skip player input and shooting, but continue enemy/bullet/explosion updates
+        update_enemies()
+        for e in enemies:
+            e.update()
+        for b in bullets:
+            b.update()
+        handle_bullet_bullet_collision()
+        bullets[:] = [b for b in bullets if b.alive]
+        for ex in explosions:
+            ex.update()
+        explosions[:] = [ex for ex in explosions if ex.alive]
+        enemies[:] = [e for e in enemies if e.alive]
+        update_enemy_sound()
         return
 
     if game_state == 'stageTransition':
@@ -665,6 +717,9 @@ def update():
         else:
             player.slide_to_grid()
         player.update()
+    elif player:
+        # Player is dead, stop movement sound
+        player.stop_run_sound()
 
     if keyboard.space and player and player.alive:
         player.shoot()
@@ -683,6 +738,9 @@ def update():
     explosions[:] = [ex for ex in explosions if ex.alive]
 
     enemies[:] = [e for e in enemies if e.alive]
+
+    # Update enemy movement sound
+    update_enemy_sound()
 
     if spawned_enemies >= total_enemies and len(enemies) == 0:
         stage_complete()
