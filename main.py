@@ -363,7 +363,7 @@ class Tank:
         self._lastY = y
         self.turn_cooldown = 0
         self.prev_dir = dir
-        self._run_channel = None
+        self._run_sound_playing = False
 
     def get_image(self):
         prefix = 'tank_player' if self.is_player else 'tank_basic'
@@ -388,14 +388,15 @@ class Tank:
                 self.stop_run_sound()
 
     def start_run_sound(self):
-        if self._run_channel is None or not self._run_channel.get_busy():
-            sounds.player_move_sound.set_volume(0.3)
-            self._run_channel = sounds.player_move_sound.play(loops=-1)
+        if not self._run_sound_playing:
+            sounds.player_move_sound.set_volume(0.2)
+            sounds.player_move_sound.play(loops=-1)
+            self._run_sound_playing = True
 
     def stop_run_sound(self):
-        if self._run_channel is not None:
-            self._run_channel.stop()
-            self._run_channel = None
+        if self._run_sound_playing:
+            sounds.player_move_sound.stop()
+            self._run_sound_playing = False
 
     def snap_to_grid(self):
         if self.dir in (DIR_UP, DIR_DOWN):
