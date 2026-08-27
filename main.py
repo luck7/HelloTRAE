@@ -344,14 +344,6 @@ class Bullet:
 # ======================================================================
 # Tank (from tank.py)
 # ======================================================================
-_run_sound = None
-
-def _get_run_sound():
-    global _run_sound
-    if _run_sound is None:
-        _run_sound = pygame.mixer.Sound(os.path.join('sounds', 'player_move_sound.wav'))
-    return _run_sound
-
 
 class Tank:
     def __init__(self, x, y, dir, is_player=False):
@@ -371,7 +363,6 @@ class Tank:
         self._lastY = y
         self.turn_cooldown = 0
         self.prev_dir = dir
-        self.run_channel = None
 
     def get_image(self):
         prefix = 'tank_player' if self.is_player else 'tank_basic'
@@ -396,13 +387,10 @@ class Tank:
                 self.stop_run_sound()
 
     def start_run_sound(self):
-        if self.run_channel is None or not self.run_channel.get_busy():
-            self.run_channel = _get_run_sound().play(-1)
+        sounds.player_move_sound.play(loops=-1)
 
     def stop_run_sound(self):
-        if self.run_channel is not None:
-            self.run_channel.stop()
-            self.run_channel = None
+        sounds.player_move_sound.stop()
 
     def snap_to_grid(self):
         if self.dir in (DIR_UP, DIR_DOWN):
@@ -553,7 +541,8 @@ def stage_complete():
     stage_transition_timer = 120
     if player:
         player.stop_run_sound()
-    pygame.mixer.stop()
+    sounds.player_move_sound.stop()
+    sounds.enemy_move_sound.stop()
 
 
 def spawn_enemy():
