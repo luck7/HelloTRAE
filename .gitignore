@@ -34,3 +34,5 @@ Desktop.ini
 *.tmp
 .cache/
 .qoder/
+.trae/
+.workbuddy/
