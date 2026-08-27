@@ -26,6 +26,9 @@ build/
 Thumbs.db
 Desktop.ini
 
+# Coverage
+.coverage
+
 # Misc
 *.log
 *.tmp
