@@ -565,7 +565,7 @@ class Game:
                     self.grid[row][col] = T_EMPTY
                     self._spawn_explosion(b.x, b.y, small=True)
                     try:
-                        sounds.destory_wall.play()
+                        sounds.destroy_wall.play()
                     except Exception:
                         pass
                     b.alive = False
