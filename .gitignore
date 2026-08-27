@@ -7,5 +7,9 @@ dist/
 build/
 *.tmp
 
+
 .venv/
 __pycache__/
+
+
+.qoder/
