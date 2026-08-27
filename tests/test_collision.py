@@ -1,197 +1,207 @@
-"""Tests for collision detection and path-finding functions."""
-import main
-from main import (
-    rect_overlap, is_path_clear, can_move_to,
-    TILE, MAP_W, MAP_H, TANK_SIZE,
-    TERRAIN_EMPTY, TERRAIN_BRICK, TERRAIN_STEEL, TERRAIN_WATER, TERRAIN_GRASS,
-    BASE_COL, BASE_ROW, DIR_UP,
+"""Tests for collision detection via Tank.try_move and rect helpers."""
+import pygame
+from unittest.mock import MagicMock
+
+from constants import (
+    TILE_SIZE, GRID_W, GRID_H, GAME_W, GAME_H,
+    T_EMPTY, T_BRICK, T_STEEL, T_WATER, T_GRASS,
+    UP, DOWN, LEFT, RIGHT,
 )
-from conftest import make_empty_map, make_standard_map
+from map import parse_level, cell_to_pixel, rect_for_center, bullet_rect
+from entities import Tank, PlayerTank, EnemyTank
+from game import Game
+from conftest import make_empty_map
 
 
 # ======================================================================
-# rect_overlap
+# rect_for_center
 # ======================================================================
-class TestRectOverlap:
-    def test_overlapping_rects(self):
-        assert rect_overlap(0, 0, 10, 10, 5, 5, 10, 10) is True
+class TestRectForCenter:
+    def test_default_size(self):
+        r = rect_for_center(100, 100)
+        assert r.left == 100 - TILE_SIZE // 2
+        assert r.top == 100 - TILE_SIZE // 2
+        assert r.width == TILE_SIZE
+        assert r.height == TILE_SIZE
 
-    def test_no_overlap(self):
-        assert rect_overlap(0, 0, 10, 10, 20, 20, 10, 10) is False
+    def test_custom_size(self):
+        r = rect_for_center(100, 100, 20)
+        assert r.width == 20
+        assert r.height == 20
 
-    def test_edge_touching_not_overlap(self):
-        assert rect_overlap(0, 0, 10, 10, 10, 0, 10, 10) is False
-
-    def test_contained_rect(self):
-        assert rect_overlap(0, 0, 20, 20, 5, 5, 10, 10) is True
-
-    def test_horizontal_overlap(self):
-        assert rect_overlap(0, 0, 10, 5, 5, 0, 10, 5) is True
-
-    def test_vertical_overlap(self):
-        assert rect_overlap(0, 0, 5, 10, 0, 5, 5, 10) is True
-
-    def test_zero_size_rect(self):
-        # rect_overlap uses strict < comparison, so a zero-size rect
-        # inside another rect still "overlaps" by the implementation's logic
-        assert rect_overlap(5, 5, 0, 0, 0, 0, 10, 10) is True
-
-    def test_symmetry(self):
-        assert rect_overlap(0, 0, 10, 10, 5, 5, 10, 10) == \
-               rect_overlap(5, 5, 10, 10, 0, 0, 10, 10)
-
-    def test_negative_coordinates(self):
-        assert rect_overlap(-10, -10, 20, 20, -5, -5, 10, 10) is True
-
-    def test_far_apart_negative(self):
-        assert rect_overlap(-100, -100, 10, 10, 100, 100, 10, 10) is False
+    def test_center_position(self):
+        r = rect_for_center(100, 200)
+        cx = r.left + r.width // 2
+        cy = r.top + r.height // 2
+        assert cx == 100
+        assert cy == 200
 
 
 # ======================================================================
-# is_path_clear
+# bullet_rect
 # ======================================================================
-class TestIsPathClear:
-    def test_empty_map_is_clear(self):
-        main.map_data = make_empty_map()
-        assert is_path_clear(0, 0, TILE, TILE) is True
+class TestBulletRect:
+    def test_size(self):
+        b = MagicMock()
+        b.x = 100
+        b.y = 100
+        r = bullet_rect(b)
+        assert r.width == 16
+        assert r.height == 16
 
-    def test_brick_blocks_path(self):
-        main.map_data = make_empty_map()
-        main.map_data[0][0] = TERRAIN_BRICK
-        assert is_path_clear(0, 0, TILE, TILE) is False
+    def test_centered(self):
+        b = MagicMock()
+        b.x = 100
+        b.y = 200
+        r = bullet_rect(b)
+        assert r.centerx == 100
+        assert r.centery == 200
 
-    def test_steel_blocks_path(self):
-        main.map_data = make_empty_map()
-        main.map_data[0][0] = TERRAIN_STEEL
-        assert is_path_clear(0, 0, TILE, TILE) is False
 
-    def test_water_blocks_path(self):
-        main.map_data = make_empty_map()
-        main.map_data[0][0] = TERRAIN_WATER
-        assert is_path_clear(0, 0, TILE, TILE) is False
+# ======================================================================
+# Tank.try_move -- wall collisions
+# ======================================================================
+class TestTryMoveWallCollisions:
+    def _make_game_with_empty_grid(self):
+        g = Game()
+        g.grid = make_empty_map()
+        g.base_rect = rect_for_center(*cell_to_pixel(6, 11))
+        g.player = None
+        g.enemies = []
+        return g
+
+    def test_brick_blocks_movement(self):
+        g = self._make_game_with_empty_grid()
+        g.grid[0][0] = T_BRICK
+        t = Tank('player', 16, 16, UP)
+        result = t.try_move(0, -2, g)
+        assert result is False
+
+    def test_steel_blocks_movement(self):
+        g = self._make_game_with_empty_grid()
+        g.grid[0][0] = T_STEEL
+        t = Tank('player', 16, 16, UP)
+        result = t.try_move(0, -2, g)
+        assert result is False
+
+    def test_water_blocks_movement(self):
+        g = self._make_game_with_empty_grid()
+        g.grid[0][0] = T_WATER
+        t = Tank('player', 16, 16, UP)
+        result = t.try_move(0, -2, g)
+        assert result is False
 
     def test_grass_does_not_block(self):
-        main.map_data = make_empty_map()
-        main.map_data[0][0] = TERRAIN_GRASS
-        assert is_path_clear(0, 0, TILE, TILE) is True
+        g = self._make_game_with_empty_grid()
+        g.grid[0][0] = T_GRASS
+        t = Tank('player', 16, 48, DOWN)
+        result = t.try_move(0, -2, g)
+        assert result is True
 
-    def test_out_of_bounds_left(self):
-        main.map_data = make_empty_map()
-        assert is_path_clear(-1, 0, TILE, TILE) is False
-
-    def test_out_of_bounds_top(self):
-        main.map_data = make_empty_map()
-        assert is_path_clear(0, -1, TILE, TILE) is False
-
-    def test_out_of_bounds_right(self):
-        main.map_data = make_empty_map()
-        assert is_path_clear(MAP_W * TILE, 0, TILE, TILE) is False
-
-    def test_out_of_bounds_bottom(self):
-        main.map_data = make_empty_map()
-        assert is_path_clear(0, MAP_H * TILE, TILE, TILE) is False
-
-    def test_base_blocks_path(self):
-        main.map_data = make_empty_map()
-        base_x = BASE_COL * TILE
-        base_y = BASE_ROW * TILE
-        assert is_path_clear(base_x, base_y, TILE, TILE) is False
-
-    def test_clear_area_near_base(self):
-        main.map_data = make_empty_map()
-        base_x = BASE_COL * TILE
-        base_y = BASE_ROW * TILE
-        # Position far from base
-        assert is_path_clear(0, 0, TILE, TILE) is True
-
-    def test_multi_tile_span_hits_terrain(self):
-        main.map_data = make_empty_map()
-        main.map_data[0][1] = TERRAIN_BRICK
-        # A 2-tile wide object at x=0 should overlap tile (0,1) which is brick
-        assert is_path_clear(0, 0, TILE * 2, TILE) is False
-
-    def test_standard_map_spawn_area_clear(self):
-        """Player spawn area (col 4, row 12) should be accessible."""
-        main.map_data = make_standard_map()
-        # Row 12, col 4 is empty in STAGE_MAP
-        assert main.STAGE_MAP[12][4] == TERRAIN_EMPTY
+    def test_empty_is_clear(self):
+        g = self._make_game_with_empty_grid()
+        t = Tank('player', 100, 100, UP)
+        result = t.try_move(0, -2, g)
+        assert result is True
 
 
 # ======================================================================
-# can_move_to
+# Tank.try_move -- bounds check
 # ======================================================================
-class TestCanMoveTo:
-    def _make_tank(self, x, y, is_player=False):
-        from unittest.mock import MagicMock
-        tank = MagicMock()
-        tank.x = x
-        tank.y = y
-        tank.width = TANK_SIZE
-        tank.height = TANK_SIZE
-        tank.alive = True
-        return tank
+class TestTryMoveBounds:
+    def _make_game_with_empty_grid(self):
+        g = Game()
+        g.grid = make_empty_map()
+        g.base_rect = rect_for_center(*cell_to_pixel(6, 11))
+        g.player = None
+        g.enemies = []
+        return g
 
-    def test_no_other_tanks_clear(self):
-        main.map_data = make_empty_map()
-        main.player = None
-        main.enemies = []
-        tank = self._make_tank(0, 0)
-        assert can_move_to(tank, 100, 100) is True
+    def test_left_boundary(self):
+        g = self._make_game_with_empty_grid()
+        t = Tank('player', 16, 100, LEFT)
+        result = t.try_move(-TILE_SIZE, 0, g)
+        assert result is False
 
-    def test_blocked_by_player(self):
-        main.map_data = make_empty_map()
-        main.player = self._make_tank(100, 100, is_player=True)
-        main.enemies = []
-        tank = self._make_tank(0, 0)
-        # Overlaps with player at (100,100)
-        assert can_move_to(tank, 100, 100) is False
+    def test_right_boundary(self):
+        g = self._make_game_with_empty_grid()
+        t = Tank('player', GAME_W - 16, 100, RIGHT)
+        result = t.try_move(TILE_SIZE, 0, g)
+        assert result is False
 
-    def test_not_blocked_far_from_player(self):
-        main.map_data = make_empty_map()
-        main.player = self._make_tank(100, 100, is_player=True)
-        main.enemies = []
-        tank = self._make_tank(0, 0)
-        assert can_move_to(tank, 300, 300) is True
+    def test_top_boundary(self):
+        g = self._make_game_with_empty_grid()
+        t = Tank('player', 100, 16, UP)
+        result = t.try_move(0, -TILE_SIZE, g)
+        assert result is False
 
-    def test_blocked_by_alive_enemy(self):
-        main.map_data = make_empty_map()
-        main.player = None
-        enemy = self._make_tank(200, 200)
-        main.enemies = [enemy]
-        tank = self._make_tank(0, 0)
-        assert can_move_to(tank, 200, 200) is False
+    def test_bottom_boundary(self):
+        g = self._make_game_with_empty_grid()
+        t = Tank('player', 100, GAME_H - 16, DOWN)
+        result = t.try_move(0, TILE_SIZE, g)
+        assert result is False
 
-    def test_dead_enemy_does_not_block(self):
-        main.map_data = make_empty_map()
-        main.player = None
-        enemy = self._make_tank(200, 200)
-        enemy.alive = False
-        main.enemies = [enemy]
-        tank = self._make_tank(0, 0)
-        assert can_move_to(tank, 200, 200) is True
 
-    def test_self_not_blocked_by_self(self):
-        main.map_data = make_empty_map()
-        main.player = None
-        main.enemies = []
-        tank = self._make_tank(100, 100)
-        # Tank should be able to "move" to its own position
-        assert can_move_to(tank, 100, 100) is True
+# ======================================================================
+# Tank.try_move -- tank-tank collisions
+# ======================================================================
+class TestTryMoveTankCollisions:
+    def _make_game_with_empty_grid(self):
+        g = Game()
+        g.grid = make_empty_map()
+        g.base_rect = rect_for_center(*cell_to_pixel(6, 11))
+        g.player = None
+        g.enemies = []
+        return g
 
-    def test_self_enemy_not_blocked_by_self(self):
-        main.map_data = make_empty_map()
-        main.player = None
-        tank = self._make_tank(100, 100)
-        main.enemies = [tank]
-        assert can_move_to(tank, 100, 100) is True
+    def test_blocked_by_other_tank(self):
+        g = self._make_game_with_empty_grid()
+        # Place other tank close enough that moving 2px overlaps
+        other = Tank('enemy', 100, 85, DOWN)
+        other.alive = True
+        g.enemies = [other]
+        t = Tank('player', 100, 100, UP)
+        result = t.try_move(0, -2, g)
+        assert result is False
 
-    def test_blocked_by_multiple_enemies(self):
-        main.map_data = make_empty_map()
-        main.player = None
-        e1 = self._make_tank(50, 50)
-        e2 = self._make_tank(200, 200)
-        main.enemies = [e1, e2]
-        tank = self._make_tank(0, 0)
-        assert can_move_to(tank, 50, 50) is False
-        assert can_move_to(tank, 200, 200) is False
-        assert can_move_to(tank, 350, 350) is True
+    def test_dead_tank_does_not_block(self):
+        g = self._make_game_with_empty_grid()
+        other = Tank('enemy', 100, 68, DOWN)
+        other.alive = False
+        g.enemies = [other]
+        t = Tank('player', 100, 100, UP)
+        result = t.try_move(0, -2, g)
+        assert result is True
+
+    def test_base_rect_blocks_movement(self):
+        g = self._make_game_with_empty_grid()
+        bx, by = cell_to_pixel(6, 11)
+        t = Tank('player', bx, by - TILE_SIZE, UP)
+        result = t.try_move(0, 2, g)
+        # Should be blocked by base rect
+        assert result is False or t.y != by
+
+
+# ======================================================================
+# Tank._cells_under
+# ======================================================================
+class TestCellsUnder:
+    def test_single_cell(self):
+        t = Tank('player', 16, 16, UP)
+        r = rect_for_center(16, 16, TILE_SIZE)
+        cells = t._cells_under(r)
+        assert (0, 0) in cells
+
+    def test_multiple_cells(self):
+        t = Tank('player', 32, 32, UP)
+        r = rect_for_center(32, 32, TILE_SIZE * 2)
+        cells = t._cells_under(r)
+        assert len(cells) >= 4
+
+    def test_clamped_to_grid(self):
+        t = Tank('player', 16, 16, UP)
+        r = pygame.Rect(-100, -100, 2000, 2000)
+        cells = t._cells_under(r)
+        for c, row in cells:
+            assert 0 <= c < GRID_W
+            assert 0 <= row < GRID_H

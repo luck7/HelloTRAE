@@ -1,97 +1,104 @@
-"""Tests for constants defined in main.py."""
-import main
+"""Tests for constants defined in constants.py."""
+import constants as c
 
 
 class TestTileConstants:
     def test_tile_size(self):
-        assert main.TILE == 32
+        assert c.TILE_SIZE == 32
 
     def test_map_dimensions(self):
-        assert main.MAP_W == 13
-        assert main.MAP_H == 13
+        assert c.GRID_W == 13
+        assert c.GRID_H == 13
 
-    def test_screen_dimensions(self):
-        assert main.SCREEN_W == main.MAP_W * main.TILE  # 416
-        assert main.SCREEN_H == main.MAP_H * main.TILE  # 416
+    def test_game_dimensions(self):
+        assert c.GAME_W == c.GRID_W * c.TILE_SIZE  # 416
+        assert c.GAME_H == c.GRID_H * c.TILE_SIZE  # 416
 
-    def test_tank_size(self):
-        assert main.TANK_SIZE == 32
+    def test_hud_width(self):
+        assert c.HUD_W == 96
 
     def test_bullet_size(self):
-        assert main.BULLET_SIZE == 16
+        assert c.BULLET_SIZE == 16
 
-    def test_grid_size(self):
-        assert main.GRID == 16
-
-    def test_half_tile(self):
-        assert main.HALF_TILE == main.TILE // 2  # 16
+    def test_fps(self):
+        assert c.FPS == 60
 
 
 class TestDirectionConstants:
     def test_direction_values(self):
-        assert main.DIR_UP == 0
-        assert main.DIR_RIGHT == 1
-        assert main.DIR_DOWN == 2
-        assert main.DIR_LEFT == 3
+        assert c.UP == 'up'
+        assert c.DOWN == 'down'
+        assert c.LEFT == 'left'
+        assert c.RIGHT == 'right'
 
     def test_directions_are_unique(self):
-        dirs = [main.DIR_UP, main.DIR_RIGHT, main.DIR_DOWN, main.DIR_LEFT]
+        dirs = [c.UP, c.DOWN, c.LEFT, c.RIGHT]
         assert len(set(dirs)) == 4
+
+    def test_dir_vec_has_all_directions(self):
+        for d in (c.UP, c.DOWN, c.LEFT, c.RIGHT):
+            assert d in c.DIR_VEC
+
+    def test_dir_bullet_img_has_all_directions(self):
+        for d in (c.UP, c.DOWN, c.LEFT, c.RIGHT):
+            assert d in c.DIR_BULLET_IMG
+
+    def test_dir_tank_img_has_both_kinds(self):
+        assert 'player' in c.DIR_TANK_IMG
+        assert 'enemy' in c.DIR_TANK_IMG
+        for d in (c.UP, c.DOWN, c.LEFT, c.RIGHT):
+            assert d in c.DIR_TANK_IMG['player']
+            assert d in c.DIR_TANK_IMG['enemy']
 
 
 class TestTerrainConstants:
     def test_terrain_values(self):
-        assert main.TERRAIN_EMPTY == 0
-        assert main.TERRAIN_BRICK == 1
-        assert main.TERRAIN_STEEL == 2
-        assert main.TERRAIN_GRASS == 3
-        assert main.TERRAIN_WATER == 4
+        assert c.T_EMPTY == 0
+        assert c.T_BRICK == 1
+        assert c.T_STEEL == 2
+        assert c.T_WATER == 3
+        assert c.T_GRASS == 4
 
     def test_terrains_are_unique(self):
-        terrains = [
-            main.TERRAIN_EMPTY, main.TERRAIN_BRICK, main.TERRAIN_STEEL,
-            main.TERRAIN_GRASS, main.TERRAIN_WATER,
-        ]
+        terrains = [c.T_EMPTY, c.T_BRICK, c.T_STEEL, c.T_GRASS, c.T_WATER]
         assert len(set(terrains)) == 5
 
 
-class TestBasePosition:
-    def test_base_col(self):
-        assert main.BASE_COL == 6
-
-    def test_base_row(self):
-        assert main.BASE_ROW == 12
-
-    def test_base_within_map(self):
-        assert 0 <= main.BASE_COL < main.MAP_W
-        assert 0 <= main.BASE_ROW < main.MAP_H
-
-
-class TestStageMap:
-    def test_dimensions(self):
-        assert len(main.STAGE_MAP) == main.MAP_H
-        for row in main.STAGE_MAP:
-            assert len(row) == main.MAP_W
-
-    def test_valid_terrain_values(self):
-        valid = {main.TERRAIN_EMPTY, main.TERRAIN_BRICK, main.TERRAIN_STEEL,
-                 main.TERRAIN_GRASS, main.TERRAIN_WATER}
-        for row in main.STAGE_MAP:
-            for tile in row:
-                assert tile in valid
-
-    def test_base_area_has_bricks(self):
-        """The area around the base should have protective brick walls."""
-        m = main.STAGE_MAP
-        # Row 11 around base (col 6) should have bricks
-        assert m[11][5] == main.TERRAIN_BRICK
-        assert m[11][6] == main.TERRAIN_BRICK
-        assert m[11][7] == main.TERRAIN_BRICK
+class TestGameStateConstants:
+    def test_state_values(self):
+        assert c.STATE_MENU == 'menu'
+        assert c.STATE_PLAYING == 'playing'
+        assert c.STATE_PAUSED == 'paused'
+        assert c.STATE_GAME_OVER == 'game_over'
+        assert c.STATE_WIN == 'win'
 
 
 class TestWindowDimensions:
     def test_width(self):
-        assert main.WIDTH == main.SCREEN_W + 120
+        assert c.WIDTH == c.GAME_W + c.HUD_W  # 512
 
     def test_height(self):
-        assert main.HEIGHT == main.SCREEN_H
+        assert c.HEIGHT == c.GAME_H  # 416
+
+
+class TestTuningConstants:
+    def test_tank_speed(self):
+        assert c.TANK_SPEED == 2
+
+    def test_bullet_speed(self):
+        assert c.BULLET_SPEED == 4
+
+    def test_player_lives(self):
+        assert c.PLAYER_LIVES == 3
+
+    def test_max_enemies_on_screen(self):
+        assert c.MAX_ENEMIES_ON_SCREEN == 4
+
+    def test_total_enemies(self):
+        assert c.TOTAL_ENEMIES == 20
+
+    def test_spawn_protection(self):
+        assert c.SPAWN_PROTECTION == 120
+
+    def test_spawn_interval(self):
+        assert c.SPAWN_INTERVAL == 180

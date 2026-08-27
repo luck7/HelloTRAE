@@ -1,110 +1,164 @@
-"""Tests for map initialization, random map generation, and respawn."""
-import main
-from main import (
-    init_map, generate_random_map, respawn_player,
-    MAP_W, MAP_H, TILE,
-    TERRAIN_EMPTY, TERRAIN_BRICK, TERRAIN_STEEL, TERRAIN_GRASS, TERRAIN_WATER,
-    BASE_COL, BASE_ROW, DIR_UP,
+"""Tests for map.py: parse_level and coordinate helpers."""
+from constants import (
+    TILE_SIZE, GRID_W, GRID_H,
+    T_EMPTY, T_BRICK, T_STEEL, T_WATER, T_GRASS,
 )
-from conftest import make_empty_map
+from map import (
+    LEVEL_MAP, parse_level,
+    cell_to_pixel, pixel_to_cell, snap_axis,
+    rect_for_center, bullet_rect,
+)
 
 
-class TestInitMap:
-    def test_stage_1_uses_stage_map(self):
-        main.stage = 1
-        init_map()
-        assert len(main.map_data) == MAP_H
-        for y in range(MAP_H):
-            assert main.map_data[y] == main.STAGE_MAP[y]
+# ======================================================================
+# parse_level
+# ======================================================================
+class TestParseLevel:
+    def test_grid_dimensions(self):
+        grid, _, _, _ = parse_level()
+        assert len(grid) == GRID_H
+        for row in grid:
+            assert len(row) == GRID_W
 
-    def test_map_data_is_copy(self):
-        main.stage = 1
-        init_map()
-        # Modifying map_data should not affect STAGE_MAP
-        main.map_data[0][0] = 999
-        assert main.STAGE_MAP[0][0] != 999
+    def test_returns_list_of_lists(self):
+        grid, _, _, _ = parse_level()
+        assert isinstance(grid, list)
+        assert isinstance(grid[0], list)
 
-    def test_stage_2_generates_random(self):
-        main.stage = 2
-        init_map()
-        assert len(main.map_data) == MAP_H
-        for row in main.map_data:
-            assert len(row) == MAP_W
+    def test_enemy_spawns_found(self):
+        _, enemy_spawns, _, _ = parse_level()
+        assert len(enemy_spawns) == 3
+        cols = sorted([c for c, r in enemy_spawns])
+        assert cols == [0, 6, 12]
 
+    def test_enemy_spawns_at_row_zero(self):
+        _, enemy_spawns, _, _ = parse_level()
+        for c, r in enemy_spawns:
+            assert r == 0
 
-class TestGenerateRandomMap:
-    def test_dimensions(self):
-        generate_random_map()
-        assert len(main.map_data) == MAP_H
-        for row in main.map_data:
-            assert len(row) == MAP_W
+    def test_player_spawn(self):
+        _, _, player_spawn, _ = parse_level()
+        assert player_spawn == (6, 12)
 
-    def test_base_protection_bricks(self):
-        generate_random_map()
-        m = main.map_data
-        assert m[11][5] == TERRAIN_BRICK
-        assert m[11][6] == TERRAIN_BRICK
-        assert m[11][7] == TERRAIN_BRICK
-        assert m[12][5] == TERRAIN_BRICK
-        assert m[12][7] == TERRAIN_BRICK
-        assert m[10][5] == TERRAIN_BRICK
-        assert m[10][6] == TERRAIN_BRICK
-        assert m[10][7] == TERRAIN_BRICK
+    def test_base_cell(self):
+        _, _, _, base_cell = parse_level()
+        assert base_cell == (6, 11)
 
-    def test_first_row_empty(self):
-        """First row must be empty for enemy spawning."""
-        generate_random_map()
-        for x in range(MAP_W):
-            assert main.map_data[0][x] == TERRAIN_EMPTY
+    def test_brick_tiles(self):
+        grid, _, _, _ = parse_level()
+        # Row 2: "..BBBBBBBBB.." -> cols 2-10 are brick
+        for c in range(2, 11):
+            assert grid[2][c] == T_BRICK, f"Expected brick at col {c}, row 2"
 
-    def test_spawn_points_clear(self):
-        """Enemy spawn points at row 0 should be empty."""
-        generate_random_map()
-        for col in [0, 6, 12]:
-            assert main.map_data[0][col] == TERRAIN_EMPTY
+    def test_steel_tiles(self):
+        grid, _, _, _ = parse_level()
+        # Row 4: "..B.SSSSS.B.." -> cols 4-8 are steel
+        for c in range(4, 9):
+            assert grid[4][c] == T_STEEL, f"Expected steel at col {c}, row 4"
 
-    def test_player_spawn_area_clear(self):
-        """Player spawn area should be accessible."""
-        generate_random_map()
-        assert main.map_data[12][4] == TERRAIN_EMPTY
-        assert main.map_data[12][6] == TERRAIN_EMPTY
+    def test_water_tiles(self):
+        grid, _, _, _ = parse_level()
+        # Row 8: ".WW...G...WW." -> cols 1,2 and 10,11 are water
+        assert grid[8][1] == T_WATER
+        assert grid[8][2] == T_WATER
+        assert grid[8][10] == T_WATER
+        assert grid[8][11] == T_WATER
 
-    def test_only_valid_terrain(self):
-        valid = {TERRAIN_EMPTY, TERRAIN_BRICK, TERRAIN_STEEL, TERRAIN_GRASS, TERRAIN_WATER}
-        generate_random_map()
-        for row in main.map_data:
+    def test_grass_tiles(self):
+        grid, _, _, _ = parse_level()
+        # Row 5: "..B...G...B.." -> col 6 is grass
+        assert grid[5][6] == T_GRASS
+
+    def test_empty_cells(self):
+        grid, _, _, _ = parse_level()
+        # Row 0: "E.....E.....E" -> cols 1-5, 7-11 should be empty
+        for c in range(1, 6):
+            assert grid[0][c] == T_EMPTY
+        for c in range(7, 12):
+            assert grid[0][c] == T_EMPTY
+
+    def test_base_not_in_grid(self):
+        """The base marker 'H' should not appear as a terrain tile."""
+        grid, _, _, _ = parse_level()
+        for row in grid:
             for tile in row:
-                assert tile in valid
+                assert tile in (T_EMPTY, T_BRICK, T_STEEL, T_WATER, T_GRASS)
 
-    def test_randomness_across_runs(self):
-        """Two random maps should (very likely) differ."""
-        generate_random_map()
-        map1 = [row.copy() for row in main.map_data]
-        generate_random_map()
-        map2 = [row.copy() for row in main.map_data]
-        # Extremely unlikely to be identical
-        assert map1 != map2
+    def test_returns_tuple_of_four(self):
+        result = parse_level()
+        assert len(result) == 4
 
 
-class TestRespawnPlayer:
-    def test_respawn_with_lives(self):
-        main.lives = 2
-        respawn_player()
-        assert main.player is not None
-        assert main.player.x == 4 * TILE
-        assert main.player.y == 12 * TILE
-        assert main.player.dir == DIR_UP
-        assert main.player.is_player is True
-        assert main.player.alive is True
+# ======================================================================
+# LEVEL_MAP
+# ======================================================================
+class TestLevelMap:
+    def test_dimensions(self):
+        assert len(LEVEL_MAP) == GRID_H
+        for row in LEVEL_MAP:
+            assert len(row) == GRID_W
 
-    def test_no_respawn_without_lives(self):
-        main.lives = 0
-        old_player = main.player
-        respawn_player()
-        assert main.player == old_player  # unchanged (None)
+    def test_valid_characters(self):
+        valid = {'E', '.', 'B', 'S', 'W', 'G', 'H', 'P'}
+        for row in LEVEL_MAP:
+            for ch in row:
+                assert ch in valid
 
-    def test_respawn_position_in_bounds(self):
-        main.lives = 1
-        respawn_player()
-        assert 0 <= main.player.x < main.SCREEN_W
-        assert 0 <= main.player.y < main.SCREEN_H
+
+# ======================================================================
+# cell_to_pixel
+# ======================================================================
+class TestCellToPixel:
+    def test_origin(self):
+        assert cell_to_pixel(0, 0) == (16, 16)
+
+    def test_one_cell(self):
+        assert cell_to_pixel(1, 1) == (48, 48)
+
+    def test_corner(self):
+        assert cell_to_pixel(GRID_W - 1, GRID_H - 1) == (
+            (GRID_W - 1) * TILE_SIZE + TILE_SIZE // 2,
+            (GRID_H - 1) * TILE_SIZE + TILE_SIZE // 2,
+        )
+
+    def test_center_offset(self):
+        x, y = cell_to_pixel(3, 5)
+        assert x == 3 * TILE_SIZE + TILE_SIZE // 2
+        assert y == 5 * TILE_SIZE + TILE_SIZE // 2
+
+
+# ======================================================================
+# pixel_to_cell
+# ======================================================================
+class TestPixelToCell:
+    def test_center_of_first_cell(self):
+        assert pixel_to_cell(16, 16) == (0, 0)
+
+    def test_center_of_second_cell(self):
+        assert pixel_to_cell(48, 48) == (1, 1)
+
+    def test_round_trip(self):
+        for col in range(GRID_W):
+            for row in range(GRID_H):
+                px, py = cell_to_pixel(col, row)
+                assert pixel_to_cell(px, py) == (col, row)
+
+
+# ======================================================================
+# snap_axis
+# ======================================================================
+class TestSnapAxis:
+    def test_already_snapped(self):
+        assert snap_axis(16) == 16
+
+    def test_snap_to_nearest(self):
+        assert snap_axis(20) == 16
+        assert snap_axis(40) == 48
+
+    def test_snap_midpoint(self):
+        result = snap_axis(32)
+        assert result in (16, 48)
+
+    def test_snap_negative(self):
+        result = snap_axis(-5)
+        assert result == -16

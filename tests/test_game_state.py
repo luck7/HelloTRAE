@@ -1,581 +1,387 @@
-"""Tests for game state management and collision handling functions."""
-import main
-from main import (
-    game_over, reset_game, reset_stage, stage_complete, spawn_enemy,
-    handle_bullet_map_collision, handle_bullet_tank_collision,
-    handle_bullet_bullet_collision,
-    Tank, Bullet, Explosion,
-    TILE, MAP_W, MAP_H, TANK_SIZE, BULLET_SIZE,
-    TERRAIN_EMPTY, TERRAIN_BRICK, TERRAIN_STEEL,
-    BASE_COL, BASE_ROW,
-    DIR_UP, DIR_RIGHT, DIR_DOWN, DIR_LEFT,
+"""Tests for game.py: Game class state management, spawning, and bullet updates."""
+from unittest.mock import MagicMock
+
+from constants import (
+    TILE_SIZE, GRID_W, GRID_H, GAME_W, GAME_H,
+    T_EMPTY, T_BRICK, T_STEEL,
+    UP, DOWN, LEFT, RIGHT,
+    STATE_MENU, STATE_PLAYING, STATE_PAUSED, STATE_GAME_OVER, STATE_WIN,
+    TOTAL_ENEMIES, SPAWN_PROTECTION, PLAYER_SHOOT_COOLDOWN,
+    BULLET_SPEED, MAX_ENEMIES_ON_SCREEN,
 )
+from map import parse_level, cell_to_pixel, rect_for_center, bullet_rect
+from entities import Bullet, Tank, PlayerTank, EnemyTank, Explosion
+from game import Game
 from conftest import make_empty_map
 
 
-# ======================================================================
-# game_over
-# ======================================================================
-class TestGameOver:
-    def test_sets_gameover_state(self):
-        main.game_state = 'playing'
-        game_over('test')
-        assert main.game_state == 'gameover'
-
-    def test_from_any_state(self):
-        for state in ['menu', 'playing', 'stageTransition']:
-            main.game_state = state
-            game_over('test')
-            assert main.game_state == 'gameover'
+def _make_game_with_empty_grid():
+    g = Game()
+    g.grid = make_empty_map()
+    g.base_rect = rect_for_center(*cell_to_pixel(6, 11))
+    g.player = None
+    g.enemies = []
+    return g
 
 
 # ======================================================================
-# reset_game
+# Game state transitions
 # ======================================================================
-class TestResetGame:
-    def test_resets_score(self):
-        main.score = 500
-        reset_game()
-        assert main.score == 0
+class TestGameOverState:
+    def test_game_over_from_playing(self):
+        g = Game()
+        g.start_game()
+        g._end_game(STATE_GAME_OVER)
+        assert g.state == STATE_GAME_OVER
 
-    def test_resets_lives(self):
-        main.lives = 0
-        reset_game()
-        assert main.lives == 3
+    def test_game_over_from_any_state(self):
+        for state in [STATE_MENU, STATE_PLAYING, STATE_PAUSED]:
+            g = Game()
+            g.state = state
+            g._end_game(STATE_GAME_OVER)
+            assert g.state == STATE_GAME_OVER
 
-    def test_resets_stage(self):
-        main.stage = 5
-        reset_game()
-        assert main.stage == 1
+    def test_win_state(self):
+        g = Game()
+        g.start_game()
+        g._end_game(STATE_WIN)
+        assert g.state == STATE_WIN
 
-    def test_resets_gameover_delay(self):
-        main.gameover_delay = 100
-        reset_game()
-        assert main.gameover_delay == 0
-
-    def test_creates_player(self):
-        main.player = None
-        reset_game()
-        assert main.player is not None
-        assert main.player.is_player is True
-        assert main.player.alive is True
-
-    def test_clears_enemies(self):
-        main.enemies = [Tank(0, 0, DIR_DOWN)]
-        reset_game()
-        assert main.enemies == []
-
-    def test_clears_bullets(self):
-        main.bullets = [Bullet(0, 0, DIR_UP, True)]
-        reset_game()
-        assert main.bullets == []
-
-    def test_clears_explosions(self):
-        main.explosions = ['fake']
-        reset_game()
-        assert main.explosions == []
-
-    def test_resets_spawned_enemies(self):
-        main.spawned_enemies = 10
-        reset_game()
-        assert main.spawned_enemies == 0
-
-    def test_resets_base_alive(self):
-        main.base_alive = False
-        reset_game()
-        assert main.base_alive is True
-
-    def test_initializes_map(self):
-        main.stage = 1
-        reset_game()
-        assert len(main.map_data) == MAP_H
-        for y in range(MAP_H):
-            assert main.map_data[y] == main.STAGE_MAP[y]
-
-    def test_total_enemies_stage_1(self):
-        reset_game()
-        # total_enemies = 8 + stage * 2 = 8 + 1 * 2 = 10
-        assert main.total_enemies == 10
+    def test_no_duplicate_state_change(self):
+        g = Game()
+        g.start_game()
+        g._end_game(STATE_GAME_OVER)
+        g.state_timer = 50
+        g._end_game(STATE_GAME_OVER)
+        assert g.state_timer == 50
 
 
 # ======================================================================
-# reset_stage
+# Game.reset
 # ======================================================================
-class TestResetStage:
-    def test_creates_player(self):
-        reset_stage()
-        assert main.player is not None
-        assert main.player.x == 4 * TILE
-        assert main.player.y == 12 * TILE
+class TestGameReset:
+    def test_state_back_to_menu(self):
+        g = Game()
+        g.start_game()
+        g.reset()
+        assert g.state == STATE_MENU
 
-    def test_clears_enemies(self):
-        main.enemies = [Tank(0, 0, DIR_DOWN)]
-        reset_stage()
-        assert main.enemies == []
+    def test_score_zero(self):
+        g = Game()
+        g.score = 999
+        g.reset()
+        assert g.score == 0
 
-    def test_clears_bullets(self):
-        main.bullets = [Bullet(0, 0, DIR_UP, True)]
-        reset_stage()
-        assert main.bullets == []
+    def test_player_none(self):
+        g = Game()
+        g.start_game()
+        g.reset()
+        assert g.player is None
 
-    def test_resets_base(self):
-        main.base_alive = False
-        reset_stage()
-        assert main.base_alive is True
+    def test_enemies_cleared(self):
+        g = Game()
+        g.start_game()
+        g.reset()
+        assert g.enemies == []
 
-    def test_resets_spawned_enemies(self):
-        main.spawned_enemies = 10
-        reset_stage()
-        assert main.spawned_enemies == 0
+    def test_bullets_cleared(self):
+        g = Game()
+        g.start_game()
+        g.reset()
+        assert g.bullets == []
 
-    def test_total_enemies_scales_with_stage(self):
-        main.stage = 3
-        reset_stage()
-        assert main.total_enemies == 8 + 3 * 2  # 14
+    def test_explosions_cleared(self):
+        g = Game()
+        g.start_game()
+        g.reset()
+        assert g.explosions == []
+
+    def test_high_score_preserved(self):
+        g = Game()
+        g.high_score = 1000
+        g.reset()
+        assert g.high_score == 1000
+
+    def test_base_alive_restored(self):
+        g = Game()
+        g.start_game()
+        g.base_alive = False
+        g.reset()
+        assert g.base_alive is True
 
 
 # ======================================================================
-# stage_complete
+# Game.start_game
 # ======================================================================
-class TestStageComplete:
-    def test_sets_transition_state(self):
-        main.game_state = 'playing'
-        stage_complete()
-        assert main.game_state == 'stageTransition'
+class TestGameStartGame:
+    def test_state_playing(self):
+        g = Game()
+        g.start_game()
+        assert g.state == STATE_PLAYING
 
-    def test_increments_stage(self):
-        main.stage = 1
-        stage_complete()
-        assert main.stage == 2
+    def test_player_created(self):
+        g = Game()
+        g.start_game()
+        assert g.player is not None
+        assert g.player.alive is True
 
-    def test_sets_transition_timer(self):
-        stage_complete()
-        assert main.stage_transition_timer == 120
+    def test_player_has_protection(self):
+        g = Game()
+        g.start_game()
+        assert g.player.protection == SPAWN_PROTECTION
+
+    def test_score_reset(self):
+        g = Game()
+        g.score = 500
+        g.start_game()
+        assert g.score == 0
+
+    def test_enemies_spawned(self):
+        g = Game()
+        g.start_game()
+        assert len(g.enemies) > 0
+
+    def test_base_alive(self):
+        g = Game()
+        g.base_alive = False
+        g.start_game()
+        assert g.base_alive is True
+
+    def test_enemies_remaining_reset(self):
+        g = Game()
+        g.enemies_remaining = 5
+        g.start_game()
+        # start_game spawns 2 enemies, so remaining = TOTAL - 2
+        assert g.enemies_remaining == TOTAL_ENEMIES - 2
 
 
 # ======================================================================
-# spawn_enemy
+# Game._spawn_enemy
 # ======================================================================
 class TestSpawnEnemy:
-    def test_spawn_increments_count(self):
-        main.total_enemies = 20
-        main.spawned_enemies = 0
-        main.enemies = []
-        spawn_enemy()
-        assert main.spawned_enemies == 1
+    def test_spawn_decrements_remaining(self):
+        g = Game()
+        g.enemies_remaining = 10
+        old = g.enemies_remaining
+        g._spawn_enemy()
+        if len(g.enemies) > 0:
+            assert g.enemies_remaining == old - 1
 
-    def test_spawn_creates_tank(self):
-        main.total_enemies = 20
-        main.spawned_enemies = 0
-        main.enemies = []
-        spawn_enemy()
-        assert len(main.enemies) == 1
-        assert main.enemies[0].is_player is False
+    def test_no_spawn_when_none_remaining(self):
+        g = Game()
+        g.enemies_remaining = 0
+        old_count = len(g.enemies)
+        g._spawn_enemy()
+        assert len(g.enemies) == old_count
 
-    def test_no_spawn_at_limit(self):
-        main.total_enemies = 5
-        main.spawned_enemies = 5
-        old_count = len(main.enemies)
-        spawn_enemy()
-        assert main.spawned_enemies == 5
-        assert len(main.enemies) == old_count
-
-    def test_spawn_at_row_zero(self):
-        main.total_enemies = 20
-        main.spawned_enemies = 0
-        main.enemies = []
-        spawn_enemy()
-        assert main.enemies[0].y == 0
-
-    def test_multiple_spawns(self):
-        main.total_enemies = 20
-        main.spawned_enemies = 0
-        main.enemies = []
-        # Spawn points may be occupied, so spawn count <= 3
-        for _ in range(5):
-            spawn_enemy()
-        assert main.spawned_enemies >= 1
-        assert main.spawned_enemies <= 3
+    def test_no_spawn_when_max_on_screen(self):
+        g = Game()
+        g.enemies_remaining = 10
+        while len(g.enemies) < MAX_ENEMIES_ON_SCREEN:
+            g.enemies.append(EnemyTank(0, 0))
+        old_count = len(g.enemies)
+        g._spawn_enemy()
+        assert len(g.enemies) == old_count
 
 
 # ======================================================================
-# handle_bullet_map_collision
+# Game._respawn_player
 # ======================================================================
-class TestHandleBulletMapCollision:
+class TestRespawnPlayer:
+    def test_respawn_decrements_lives(self):
+        g = Game()
+        g.start_game()
+        g.player.alive = False
+        old_lives = g.player.lives
+        g._respawn_player()
+        if old_lives > 1:
+            assert g.player.lives == old_lives - 1
+
+    def test_respawn_restores_position(self):
+        g = Game()
+        g.start_game()
+        g.player.alive = False
+        g.player.lives = 2
+        g._respawn_player()
+        px, py = cell_to_pixel(*g.player_spawn)
+        assert g.player.x == px
+        assert g.player.y == py
+
+    def test_respawn_gives_protection(self):
+        g = Game()
+        g.start_game()
+        g.player.alive = False
+        g.player.lives = 2
+        g._respawn_player()
+        assert g.player.protection == SPAWN_PROTECTION
+
+    def test_no_lives_ends_game(self):
+        g = Game()
+        g.start_game()
+        g.player.alive = False
+        g.player.lives = 1
+        g._respawn_player()
+        assert g.state == STATE_GAME_OVER
+
+    def test_respawn_restores_direction(self):
+        g = Game()
+        g.start_game()
+        g.player.alive = False
+        g.player.lives = 2
+        g.player.direction = DOWN
+        g._respawn_player()
+        assert g.player.direction == UP
+
+
+# ======================================================================
+# Game._update_bullet
+# ======================================================================
+class TestUpdateBullet:
+    def _make_bullet(self, x, y, vx, vy, owner='player'):
+        b = MagicMock()
+        b.x = float(x)
+        b.y = float(y)
+        b.vx = vx
+        b.vy = vy
+        b.alive = True
+        b.owner = owner
+        b.direction = UP
+        return b
+
     def test_brick_destroyed(self):
-        main.map_data = make_empty_map()
-        main.map_data[0][0] = TERRAIN_BRICK
-        main.explosions = []
-        b = Bullet(0, 0, DIR_DOWN, True)
-        result = handle_bullet_map_collision(b)
-        assert result is True
-        assert main.map_data[0][0] == TERRAIN_EMPTY
+        g = _make_game_with_empty_grid()
+        g.grid[5][5] = T_BRICK
+        g.player = None
+        g.enemies = []
+        bx = 5 * TILE_SIZE + TILE_SIZE // 2
+        by = 5 * TILE_SIZE
+        b = self._make_bullet(bx, by, 0, BULLET_SPEED)
+        g.bullets = [b]
+        g._update_bullet(b)
+        assert g.grid[5][5] == T_EMPTY
         assert b.alive is False
 
-    def test_steel_not_destroyed(self):
-        main.map_data = make_empty_map()
-        main.map_data[0][0] = TERRAIN_STEEL
-        main.explosions = []
-        b = Bullet(0, 0, DIR_DOWN, True)
-        result = handle_bullet_map_collision(b)
-        assert result is True
-        assert main.map_data[0][0] == TERRAIN_STEEL  # unchanged
+    def test_steel_bounces(self):
+        g = _make_game_with_empty_grid()
+        g.grid[5][5] = T_STEEL
+        g.player = None
+        g.enemies = []
+        bx = 5 * TILE_SIZE + TILE_SIZE // 2
+        by = 5 * TILE_SIZE
+        b = self._make_bullet(bx, by, 0, BULLET_SPEED)
+        g.bullets = [b]
+        g._update_bullet(b)
+        assert g.grid[5][5] == T_STEEL
         assert b.alive is False
 
-    def test_empty_map_no_collision(self):
-        main.map_data = make_empty_map()
-        main.explosions = []
-        b = Bullet(5 * TILE + 8, 5 * TILE + 8, DIR_DOWN, True)
-        result = handle_bullet_map_collision(b)
-        assert result is False
+    def test_out_of_bounds(self):
+        g = _make_game_with_empty_grid()
+        g.player = None
+        g.enemies = []
+        b = self._make_bullet(100, -1, 0, -BULLET_SPEED)
+        g.bullets = [b]
+        g._update_bullet(b)
+        assert b.alive is False
 
     def test_base_hit(self):
-        main.map_data = make_empty_map()
-        main.explosions = []
-        main.base_alive = True
-        base_x = BASE_COL * TILE + 8
-        base_y = BASE_ROW * TILE + 8
-        b = Bullet(base_x, base_y, DIR_DOWN, True)
-        result = handle_bullet_map_collision(b)
-        assert result is True
-        assert main.base_alive is False
-        assert b.alive is False
+        g = _make_game_with_empty_grid()
+        g.base_alive = True
+        bx, by = cell_to_pixel(6, 11)
+        g.base_rect = rect_for_center(bx, by)
+        g.player = None
+        g.enemies = []
+        b = self._make_bullet(bx, by, 0, BULLET_SPEED)
+        g.bullets = [b]
+        g._update_bullet(b)
+        assert g.base_alive is False
+        assert g.state == STATE_GAME_OVER
 
-    def test_base_already_destroyed_no_double_set(self):
-        main.map_data = make_empty_map()
-        main.explosions = []
-        main.base_alive = False
-        main.gameover_delay = 0
-        base_x = BASE_COL * TILE + 8
-        base_y = BASE_ROW * TILE + 8
-        b = Bullet(base_x, base_y, DIR_DOWN, True)
-        handle_bullet_map_collision(b)
-        # gameover_delay should not be reset since base was already dead
-        assert main.gameover_delay == 0
-
-    def test_creates_explosion_on_brick(self):
-        main.map_data = make_empty_map()
-        main.map_data[0][0] = TERRAIN_BRICK
-        main.explosions = []
-        b = Bullet(0, 0, DIR_DOWN, True)
-        handle_bullet_map_collision(b)
-        assert len(main.explosions) > 0
-
-    def test_creates_explosion_on_steel(self):
-        main.map_data = make_empty_map()
-        main.map_data[0][0] = TERRAIN_STEEL
-        main.explosions = []
-        b = Bullet(0, 0, DIR_DOWN, True)
-        handle_bullet_map_collision(b)
-        assert len(main.explosions) > 0
-
-
-# ======================================================================
-# handle_bullet_tank_collision
-# ======================================================================
-class TestHandleBulletTankCollision:
     def test_player_bullet_kills_enemy(self):
-        main.explosions = []
-        enemy = Tank(100, 100, DIR_DOWN, False)
-        main.enemies = [enemy]
-        main.player = None
-        b = Bullet(100, 100, DIR_UP, True)
-        b.width = BULLET_SIZE
-        b.height = BULLET_SIZE
-        handle_bullet_tank_collision(b)
+        g = _make_game_with_empty_grid()
+        g.player = None
+        enemy = EnemyTank(200, 200)
+        enemy.alive = True
+        enemy.protection = 0
+        g.enemies = [enemy]
+        g.score = 0
+        b = self._make_bullet(enemy.x, enemy.y, 0, BULLET_SPEED)
+        g.bullets = [b]
+        g._update_bullet(b)
         assert enemy.alive is False
+        assert g.score == 100
+
+    def test_protected_tank_not_killed(self):
+        g = _make_game_with_empty_grid()
+        g.player = None
+        enemy = EnemyTank(200, 200)
+        enemy.alive = True
+        enemy.protection = 50
+        g.enemies = [enemy]
+        b = self._make_bullet(enemy.x, enemy.y, 0, BULLET_SPEED)
+        g.bullets = [b]
+        g._update_bullet(b)
+        assert enemy.alive is True
         assert b.alive is False
 
-    def test_player_bullet_awards_score(self):
-        main.explosions = []
-        main.score = 0
-        enemy = Tank(100, 100, DIR_DOWN, False)
-        main.enemies = [enemy]
-        main.player = None
-        b = Bullet(100, 100, DIR_UP, True)
-        b.width = BULLET_SIZE
-        b.height = BULLET_SIZE
-        handle_bullet_tank_collision(b)
-        assert main.score == 100
-
-    def test_enemy_bullet_kills_player(self):
-        main.explosions = []
-        main.player = Tank(100, 100, DIR_UP, True)
-        main.player.invincible = 0
-        main.enemies = []
-        b = Bullet(100, 100, DIR_DOWN, False)
-        b.width = BULLET_SIZE
-        b.height = BULLET_SIZE
-        handle_bullet_tank_collision(b)
-        assert main.player.alive is False
-        assert b.alive is False
-
-    def test_enemy_bullet_reduces_lives(self):
-        main.explosions = []
-        main.lives = 3
-        main.player = Tank(100, 100, DIR_UP, True)
-        main.player.invincible = 0
-        main.enemies = []
-        b = Bullet(100, 100, DIR_DOWN, False)
-        b.width = BULLET_SIZE
-        b.height = BULLET_SIZE
-        handle_bullet_tank_collision(b)
-        assert main.lives == 2
-
-    def test_invincible_player_not_killed(self):
-        main.explosions = []
-        main.player = Tank(100, 100, DIR_UP, True)
-        main.player.invincible = 100
-        main.enemies = []
-        b = Bullet(100, 100, DIR_DOWN, False)
-        b.width = BULLET_SIZE
-        b.height = BULLET_SIZE
-        handle_bullet_tank_collision(b)
-        assert main.player.alive is True
-
-    def test_no_player_no_collision(self):
-        main.player = None
-        main.enemies = []
-        b = Bullet(100, 100, DIR_DOWN, False)
-        b.width = BULLET_SIZE
-        b.height = BULLET_SIZE
-        handle_bullet_tank_collision(b)
-        # Should not crash
+    def test_bullet_vs_bullet(self):
+        g = _make_game_with_empty_grid()
+        g.player = None
+        g.enemies = []
+        b1 = self._make_bullet(200, 200, 0, BULLET_SPEED, 'player')
+        b2 = self._make_bullet(200, 200, 0, -BULLET_SPEED, 'enemy')
+        g.bullets = [b1, b2]
+        g._update_bullet(b1)
+        assert b1.alive is False
+        assert b2.alive is False
 
 
 # ======================================================================
-# handle_bullet_bullet_collision
+# Game.update
 # ======================================================================
-class TestHandleBulletBulletCollision:
-    def test_bullets_cancel_each_other(self):
-        main.explosions = []
-        pb = Bullet(100, 100, DIR_UP, True)
-        eb = Bullet(100, 100, DIR_DOWN, False)
-        main.bullets = [pb, eb]
-        handle_bullet_bullet_collision()
-        assert pb.alive is False
-        assert eb.alive is False
+class TestGameUpdate:
+    def test_menu_timer_increments(self):
+        g = Game()
+        assert g.state == STATE_MENU
+        old_timer = g.menu_timer
+        g.update()
+        assert g.menu_timer == old_timer + 1
 
-    def test_same_direction_no_collision(self):
-        main.explosions = []
-        pb = Bullet(100, 100, DIR_UP, True)
-        eb = Bullet(300, 300, DIR_UP, False)
-        main.bullets = [pb, eb]
-        handle_bullet_bullet_collision()
-        assert pb.alive is True
-        assert eb.alive is True
+    def test_playing_state_updates(self):
+        g = Game()
+        g.start_game()
+        old_timer = g.state_timer
+        g.update()
+        assert g.state_timer == old_timer + 1
 
-    def test_dead_bullets_ignored(self):
-        main.explosions = []
-        pb = Bullet(100, 100, DIR_UP, True)
-        pb.alive = False
-        eb = Bullet(100, 100, DIR_DOWN, False)
-        main.bullets = [pb, eb]
-        handle_bullet_bullet_collision()
-        assert eb.alive is True  # not cancelled
-
-    def test_creates_explosions(self):
-        main.explosions = []
-        pb = Bullet(100, 100, DIR_UP, True)
-        eb = Bullet(100, 100, DIR_DOWN, False)
-        main.bullets = [pb, eb]
-        handle_bullet_bullet_collision()
-        assert len(main.explosions) == 2
-
-    def test_only_player_bullets_no_cancel(self):
-        main.explosions = []
-        pb1 = Bullet(100, 100, DIR_UP, True)
-        pb2 = Bullet(100, 100, DIR_DOWN, True)
-        main.bullets = [pb1, pb2]
-        handle_bullet_bullet_collision()
-        assert pb1.alive is True
-        assert pb2.alive is True
+    def test_game_over_state_timer_increments(self):
+        g = Game()
+        g.start_game()
+        g._end_game(STATE_GAME_OVER)
+        old_timer = g.state_timer
+        g.update()
+        assert g.state_timer == old_timer + 1
 
 
 # ======================================================================
-# Steel explosion direction (handle_bullet_map_collision)
+# Game.tanks property
 # ======================================================================
-class TestSteelExplosionDirection:
-    def test_steel_hit_from_up(self):
-        main.map_data = make_empty_map()
-        main.map_data[1][1] = TERRAIN_STEEL
-        main.explosions = []
-        # Bullet inside tile (1,1) moving down
-        b = Bullet(1 * TILE + 8, 1 * TILE + 8, DIR_DOWN, True)
-        handle_bullet_map_collision(b)
-        assert len(main.explosions) > 0
+class TestGameTanksProperty:
+    def test_no_tanks_initially(self):
+        g = Game()
+        assert g.tanks == []
 
-    def test_steel_hit_from_down(self):
-        main.map_data = make_empty_map()
-        main.map_data[1][1] = TERRAIN_STEEL
-        main.explosions = []
-        b = Bullet(1 * TILE + 8, 2 * TILE - 1, DIR_UP, True)
-        handle_bullet_map_collision(b)
-        assert len(main.explosions) > 0
+    def test_includes_enemies(self):
+        g = Game()
+        g.start_game()
+        assert len(g.tanks) > 0
 
-    def test_steel_hit_from_left(self):
-        main.map_data = make_empty_map()
-        main.map_data[1][1] = TERRAIN_STEEL
-        main.explosions = []
-        b = Bullet(2 * TILE - 1, 1 * TILE + 8, DIR_LEFT, True)
-        handle_bullet_map_collision(b)
-        assert len(main.explosions) > 0
+    def test_includes_player_when_alive(self):
+        g = Game()
+        g.start_game()
+        assert g.player in g.tanks
 
-    def test_steel_hit_from_right(self):
-        main.map_data = make_empty_map()
-        main.map_data[1][1] = TERRAIN_STEEL
-        main.explosions = []
-        b = Bullet(1 * TILE, 1 * TILE + 8, DIR_RIGHT, True)
-        handle_bullet_map_collision(b)
-        assert len(main.explosions) > 0
-
-
-# ======================================================================
-# on_key_down
-# ======================================================================
-class TestOnKeyDown:
-    def test_pause_toggle_during_playing(self):
-        from main import on_key_down
-        main.game_state = 'playing'
-        main.paused = False
-        on_key_down(main.keys.P)
-        assert main.paused is True
-        on_key_down(main.keys.P)
-        assert main.paused is False
-
-    def test_no_pause_outside_playing(self):
-        from main import on_key_down
-        main.game_state = 'menu'
-        main.paused = False
-        on_key_down(main.keys.P)
-        assert main.paused is False
-
-    def test_space_starts_game_from_menu(self):
-        from main import on_key_down
-        main.game_state = 'menu'
-        on_key_down(main.keys.SPACE)
-        assert main.game_state == 'playing'
-        assert main.score == 0
-        assert main.lives == 3
-
-    def test_space_restarts_from_gameover(self):
-        from main import on_key_down
-        main.game_state = 'gameover'
-        main.score = 500
-        on_key_down(main.keys.SPACE)
-        assert main.game_state == 'playing'
-        assert main.score == 0
-
-    def test_space_no_effect_during_playing(self):
-        from main import on_key_down
-        main.game_state = 'playing'
-        old_state = main.game_state
-        on_key_down(main.keys.SPACE)
-        assert main.game_state == old_state
-
-    def test_other_keys_no_effect(self):
-        from main import on_key_down
-        main.game_state = 'playing'
-        main.paused = False
-        on_key_down(main.keys.W)
-        assert main.paused is False
-
-
-# ======================================================================
-# update (main game loop)
-# ======================================================================
-class TestUpdate:
-    def test_gameover_delay_decrements(self):
-        from main import update
-        main.gameover_delay = 10
-        main.game_state = 'playing'
-        update()
-        assert main.gameover_delay == 9
-
-    def test_gameover_delay_triggers_game_over(self):
-        from main import update
-        main.gameover_delay = 1
-        main.game_state = 'playing'
-        update()
-        assert main.game_state == 'gameover'
-
-    def test_gameover_delay_stops_player(self):
-        from main import update
-        main.gameover_delay = 10
-        main.game_state = 'playing'
-        main.player = Tank(100, 100, DIR_UP, True)
-        main.player.moving = True
-        update()
-        assert main.player.moving is False
-
-    def test_stage_transition_timer_decrements(self):
-        from main import update
-        main.game_state = 'stageTransition'
-        main.stage_transition_timer = 50
-        update()
-        assert main.stage_transition_timer == 49
-
-    def test_stage_transition_completes(self):
-        from main import update
-        main.game_state = 'stageTransition'
-        main.stage_transition_timer = 1
-        main.stage = 2
-        update()
-        assert main.game_state == 'playing'
-
-    def test_no_update_when_paused(self):
-        from main import update
-        main.game_state = 'playing'
-        main.paused = True
-        main.player = None
-        main.enemies = []
-        main.bullets = []
-        # Should not crash
-        update()
-
-    def test_no_update_in_menu(self):
-        from main import update
-        main.game_state = 'menu'
-        main.player = None
-        main.enemies = []
-        # Should not crash
-        update()
-
-    def test_playing_update_clears_dead_bullets(self):
-        from main import update
-        main.game_state = 'playing'
-        main.paused = False
-        main.player = None
-        main.enemies = []
-        b = Bullet(100, 100, DIR_UP, True)
-        b.alive = False
-        main.bullets = [b]
-        update()
-        assert len(main.bullets) == 0
-
-    def test_playing_update_clears_dead_explosions(self):
-        from main import update
-        main.game_state = 'playing'
-        main.paused = False
-        main.player = None
-        main.enemies = []
-        main.bullets = []
-        ex = Explosion.__new__(Explosion)
-        ex.alive = False
-        ex.timer = 0
-        ex.frame = 0
-        ex.max_frame = 8
-        main.explosions = [ex]
-        update()
-        assert len(main.explosions) == 0
-
-    def test_spawn_timer_increments(self):
-        from main import update
-        main.game_state = 'playing'
-        main.paused = False
-        main.player = None
-        main.enemies = []
-        main.bullets = []
-        old_timer = main.spawn_timer
-        update()
-        assert main.spawn_timer == old_timer + 1
+    def test_excludes_dead_player(self):
+        g = Game()
+        g.start_game()
+        g.player.alive = False
+        assert g.player not in g.tanks

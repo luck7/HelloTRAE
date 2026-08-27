@@ -26,7 +26,7 @@ mock_screen = MagicMock()
 
 
 # ---------------------------------------------------------------------------
-# Mock pgzero Actor class (used by battle_city.py)
+# Mock pgzero Actor class (used by entities.py)
 # ---------------------------------------------------------------------------
 class MockActor:
     """Minimal stand-in for pgzero's Actor that stores position and image."""
@@ -40,7 +40,7 @@ class MockActor:
         pass
 
 
-# Inject Actor into builtins so battle_city.py can find it
+# Inject Actor into builtins so entities.py can find it
 import builtins
 builtins.Actor = MockActor
 
@@ -55,77 +55,28 @@ def _inject_pgzero_globals(module):
 
 
 # ---------------------------------------------------------------------------
-# Pytest fixtures
+# Import game modules and inject pgzero globals
 # ---------------------------------------------------------------------------
-import pytest
-import main
-from main import (
-    MAP_W, MAP_H, TERRAIN_EMPTY, TILE,
-    map_data, player, enemies, bullets, explosions,
-    score, lives, base_alive, game_state,
-    spawned_enemies, total_enemies, gameover_delay, stage,
+import constants
+import map as game_map
+import entities
+import game as game_module
+import main as entry
+
+_inject_pgzero_globals(entities)
+_inject_pgzero_globals(game_module)
+_inject_pgzero_globals(entry)
+
+
+# ---------------------------------------------------------------------------
+# Helper utilities for tests
+# ---------------------------------------------------------------------------
+from constants import (
+    TILE_SIZE, GRID_W, GRID_H, GAME_W, GAME_H,
+    T_EMPTY, T_BRICK, T_STEEL, T_WATER, T_GRASS,
 )
-
-# Inject pgzero globals into the imported main module
-_inject_pgzero_globals(main)
-
-# Import battle_city and inject pgzero globals
-import battle_city as bc
-_inject_pgzero_globals(bc)
-
-
-@pytest.fixture(autouse=True)
-def reset_main_state():
-    """Reset main.py global state before each test and restore after."""
-    # Save original state
-    saved = {
-        'map_data': main.map_data,
-        'player': main.player,
-        'enemies': main.enemies,
-        'bullets': main.bullets,
-        'explosions': main.explosions,
-        'score': main.score,
-        'lives': main.lives,
-        'base_alive': main.base_alive,
-        'game_state': main.game_state,
-        'spawned_enemies': main.spawned_enemies,
-        'total_enemies': main.total_enemies,
-        'gameover_delay': main.gameover_delay,
-        'stage': main.stage,
-        'paused': main.paused,
-        'stage_transition_timer': main.stage_transition_timer,
-        'spawn_timer': getattr(main, 'spawn_timer', 0),
-    }
-
-    # Reset to clean defaults
-    main.map_data = []
-    main.player = None
-    main.enemies = []
-    main.bullets = []
-    main.explosions = []
-    main.score = 0
-    main.lives = 3
-    main.base_alive = True
-    main.game_state = 'menu'
-    main.spawned_enemies = 0
-    main.total_enemies = 20
-    main.gameover_delay = 0
-    main.paused = False
-    main.stage_transition_timer = 0
-    main.spawn_timer = 0
-
-    yield
-
-    # Restore original state
-    for key, value in saved.items():
-        setattr(main, key, value)
 
 
 def make_empty_map():
-    """Create a MAP_H x MAP_W empty map."""
-    return [[TERRAIN_EMPTY] * MAP_W for _ in range(MAP_H)]
-
-
-def make_standard_map():
-    """Create a map based on STAGE_MAP."""
-    return [row.copy() for row in main.STAGE_MAP]
+    """Create a GRID_H x GRID_W empty map."""
+    return [[T_EMPTY for _ in range(GRID_W)] for _ in range(GRID_H)]
