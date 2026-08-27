@@ -68,7 +68,7 @@ class Explosion:
         elif size == 'destroy':
             sounds.player_explode.play()
         elif size == 'brick':
-            sounds.destory_wall.play()
+            sounds.destroy_wall.play()
 
     def update(self):
         self.timer += 1
