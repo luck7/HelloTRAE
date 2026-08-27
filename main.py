@@ -29,7 +29,7 @@ def update():
 
 
 def draw():
-    game.draw()
+    game.draw(screen)
 
 
 def on_key_down(key):

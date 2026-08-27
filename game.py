@@ -281,8 +281,9 @@ class Game:
             pass
 
     # ---- drawing ----
-    def draw(self):
-        screen.fill(BLACK)
+    def draw(self, screen):
+        self.screen = screen
+        self.screen.fill(BLACK)
         if self.state == STATE_MENU:
             self._draw_menu()
         elif self.state in (STATE_PLAYING, STATE_PAUSED, STATE_GAME_OVER, STATE_WIN):
@@ -299,7 +300,7 @@ class Game:
 
     def _draw_world(self):
         # Subtle battlefield background
-        screen.surface.fill((10, 10, 10), (0, 0, GAME_W, GAME_H))
+        self.screen.surface.fill((10, 10, 10), (0, 0, GAME_W, GAME_H))
         # Draw tiles (grass drawn last so tanks appear under it)
         grass_cells = []
         for r in range(GRID_H):
@@ -307,19 +308,19 @@ class Game:
                 t = self.grid[r][c]
                 x, y = cell_to_pixel(c, r)
                 if t == T_BRICK:
-                    screen.blit('tile_brick', (x - TILE_SIZE // 2, y - TILE_SIZE // 2))
+                    self.screen.blit('tile_brick', (x - TILE_SIZE // 2, y - TILE_SIZE // 2))
                 elif t == T_STEEL:
-                    screen.blit('tile_steel', (x - TILE_SIZE // 2, y - TILE_SIZE // 2))
+                    self.screen.blit('tile_steel', (x - TILE_SIZE // 2, y - TILE_SIZE // 2))
                 elif t == T_WATER:
-                    screen.blit('tile_water', (x - TILE_SIZE // 2, y - TILE_SIZE // 2))
+                    self.screen.blit('tile_water', (x - TILE_SIZE // 2, y - TILE_SIZE // 2))
                 elif t == T_GRASS:
                     grass_cells.append((x, y))
         # Base
         bx, by = cell_to_pixel(*self.base_cell)
         if self.base_alive:
-            screen.blit('base', (bx - TILE_SIZE // 2, by - TILE_SIZE // 2))
+            self.screen.blit('base', (bx - TILE_SIZE // 2, by - TILE_SIZE // 2))
         else:
-            screen.blit('base_destroyed', (bx - TILE_SIZE // 2, by - TILE_SIZE // 2))
+            self.screen.blit('base_destroyed', (bx - TILE_SIZE // 2, by - TILE_SIZE // 2))
         # Tanks
         for tank in self.tanks:
             if not tank.alive:
@@ -337,12 +338,12 @@ class Game:
             ex.draw()
         # Grass last (covers tanks)
         for (x, y) in grass_cells:
-            screen.blit('tile_grass', (x - TILE_SIZE // 2, y - TILE_SIZE // 2))
+            self.screen.blit('tile_grass', (x - TILE_SIZE // 2, y - TILE_SIZE // 2))
 
     def _draw_hud(self):
         hud_x = GAME_W
-        screen.surface.fill(HUD_BG, (hud_x, 0, HUD_W, HEIGHT))
-        pygame.draw.rect(screen.surface, HUD_BORDER,
+        self.screen.surface.fill(HUD_BG, (hud_x, 0, HUD_W, HEIGHT))
+        pygame.draw.rect(self.screen.surface, HUD_BORDER,
                          (hud_x, 0, HUD_W, HEIGHT), 2)
         cx = hud_x + HUD_W // 2
 
@@ -364,13 +365,13 @@ class Game:
             row = i // 2
             ix = col_x_left if col == 0 else col_x_right
             iy = 150 + row * 14
-            screen.blit('tank_basic_down', (ix, iy))
+            self.screen.blit('tank_basic_down', (ix, iy))
 
         # Lives (player tank icon + count)
         lives_y = HEIGHT - 70
         self._hud_label('LIVES', cx, lives_y)
         if self.player:
-            screen.blit('tank_player_up', (col_x_left, lives_y + 18))
+            self.screen.blit('tank_player_up', (col_x_left, lives_y + 18))
             self._hud_value('x{}'.format(self.player.lives),
                             col_x_right + 12, lives_y + 34, GREEN)
 
@@ -379,13 +380,13 @@ class Game:
             self._hud_label('P : PAUSE', cx, HEIGHT - 18)
 
     def _hud_label(self, text, cx, y, color=LIGHT_GRAY):
-        screen.draw.text(text, centerx=cx, top=y,
+        self.screen.draw.text(text, centerx=cx, top=y,
                          fontsize=12, color=color)
-        pygame.draw.line(screen.surface, HUD_BORDER,
+        pygame.draw.line(self.screen.surface, HUD_BORDER,
                          (cx - 28, y + 16), (cx + 28, y + 16), 1)
 
     def _hud_value(self, text, cx, y, color=YELLOW):
-        screen.draw.text(text, centerx=cx, top=y,
+        self.screen.draw.text(text, centerx=cx, top=y,
                          fontsize=18, color=color)
 
     def _draw_menu(self):
@@ -401,34 +402,34 @@ class Game:
                 self._title_surf = None
         if getattr(self, '_title_surf', None) is not None:
             rect = self._title_surf.get_rect(midtop=(WIDTH // 2, 12))
-            screen.surface.blit(self._title_surf, rect)
-        screen.draw.text('TANK BATTLE', centerx=WIDTH // 2, top=190,
+            self.screen.surface.blit(self._title_surf, rect)
+        self.screen.draw.text('TANK BATTLE', centerx=WIDTH // 2, top=190,
                          fontsize=42, color=YELLOW, owidth=2, ocolor=BLACK)
-        screen.draw.text('A Pygame Zero Battle City Clone',
+        self.screen.draw.text('A Pygame Zero Battle City Clone',
                          centerx=WIDTH // 2, top=240, fontsize=14, color=LIGHT_GRAY)
         # Blinking start prompt
         if (self.menu_timer // 30) % 2 == 0:
-            screen.draw.text('PRESS ENTER TO START',
+            self.screen.draw.text('PRESS ENTER TO START',
                              centerx=WIDTH // 2, top=295,
                              fontsize=22, color=WHITE)
         # Controls
-        screen.draw.text('ARROWS / WASD  -  MOVE',
+        self.screen.draw.text('ARROWS / WASD  -  MOVE',
                          centerx=WIDTH // 2, top=335, fontsize=13, color=GRAY)
-        screen.draw.text('SPACE  -  FIRE',
+        self.screen.draw.text('SPACE  -  FIRE',
                          centerx=WIDTH // 2, top=355, fontsize=13, color=GRAY)
-        screen.draw.text('P  -  PAUSE     ESC  -  MENU',
+        self.screen.draw.text('P  -  PAUSE     ESC  -  MENU',
                          centerx=WIDTH // 2, top=375, fontsize=13, color=GRAY)
 
     def _draw_overlay(self, title, subtitle):
         # Dim background
         overlay = pygame.Surface((GAME_W, HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 140))
-        screen.surface.blit(overlay, (0, 0))
-        screen.draw.text(title, centerx=GAME_W // 2,
+        self.screen.surface.blit(overlay, (0, 0))
+        self.screen.draw.text(title, centerx=GAME_W // 2,
                          centery=HEIGHT // 2 - 20,
                          fontsize=44, color=YELLOW,
                          owidth=2, ocolor=BLACK)
         if subtitle:
-            screen.draw.text(subtitle, centerx=GAME_W // 2,
+            self.screen.draw.text(subtitle, centerx=GAME_W // 2,
                              top=HEIGHT // 2 + 20,
                              fontsize=18, color=WHITE)

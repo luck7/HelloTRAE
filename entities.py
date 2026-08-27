@@ -8,6 +8,9 @@ shared state (grid, bullets, tanks) -- they never import the game module.
 
 import random
 
+from pgzero.actor import Actor
+from pgzero.builtins import keyboard
+
 from constants import (
     TILE_SIZE, GRID_W, GRID_H, GAME_W, GAME_H,
     T_BRICK, T_STEEL, T_WATER,
