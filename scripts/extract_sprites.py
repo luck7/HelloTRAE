@@ -11,7 +11,7 @@ SCALE = 2
 
 def main() -> None:
     project_root = Path(__file__).resolve().parents[1]
-    source = project_root / "images" / "sprite_sheet.png"
+    source = project_root / "images" / "sprite_sheet_nobg.png"
     output_dir = project_root / "images" / "sprites"
 
     pygame.init()
