@@ -19,8 +19,20 @@ if pgzero_version < [1,2]:
     sys.exit()
 
 
-print(pgzero_version)
-print([1,3] > [1,2,0])
+# ----------------------------------------------------------------------
+# Constants
+# ----------------------------------------------------------------------
+TILE_SIZE = 32
+GRID_W = 13
+GRID_H = 13
+GAME_W = GRID_W * TILE_SIZE   # 416
+GAME_H = GRID_H * TILE_SIZE   # 416
+HUD_W = 96
+WIDTH = GAME_W + HUD_W   # 512
+HEIGHT = GAME_H          # 416
+
+FPS = 60
+TITLE = "BattleCity"
 
 
 class State(Enum):
