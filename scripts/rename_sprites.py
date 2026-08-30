@@ -28,35 +28,35 @@ Armor tanks span 2 rows (8 frames per direction):
 
 from pathlib import Path
 
-SPRITES_DIR = Path(__file__).resolve().parents[1] / "sprites"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SPRITES_DIR = PROJECT_ROOT / "images" / "sprites"
+OUTPUT_DIR = PROJECT_ROOT / "images" / "sprites-renamed"
 
 # Direction order within a tank row (0-3)
-DIRS = ["up", "right", "down", "left"]
+DIRS = ["up", "left", "down", "right"]
 
 # Tank owner / type per row (rows are 1-indexed)
 TANK_ROWS = {
     # Player 1 (yellow)
-    1: ("player", "basic"),
-    2: ("player", "fast"),
-    3: ("player", "power"),
-    # Enemy (yellow)
-    4: ("enemy", "basic"),
-    5: ("enemy", "fast"),
-    6: ("enemy", "power"),
-    # Enemy armor (yellow) - 8 frames across rows 7-8
-    7: ("enemy", "armor", 0),   # frames 1-4
-    8: ("enemy", "armor", 4),   # frames 5-8
+    1: ("player1", "level1", "basic"),
+    2: ("player1", "level2", "fast"),
+    3: ("player1", "level3", "power"),
+    4: ("player1", "level4", "armor"),
+    # Enemy (white)
+    5: ("enemy1", "level1", "basic"),
+    6: ("enemy1", "level2", "fast"),
+    7: ("enemy1", "level3", "power"),
+    8: ("enemy1", "level4", "armor"),
     # Player 2 (green)
-    9: ("player2", "basic"),
-    10: ("player2", "fast"),
-    11: ("player2", "power"),
-    # Enemy (green)
-    12: ("enemy2", "basic"),
-    13: ("enemy2", "fast"),
-    14: ("enemy2", "power"),
-    # Enemy armor (green) - 8 frames across rows 15-16
-    15: ("enemy2", "armor", 0),  # frames 1-4
-    16: ("enemy2", "armor", 4),  # frames 5-8
+    9: ("player2", "level1", "basic"),
+    10: ("player2", "level2", "fast"),
+    11: ("player2", "level3", "power"),
+    12: ("player2", "level4", "armor"),
+    # Enemy (red)
+    13: ("enemy2", "level1", "basic"),
+    14: ("enemy2", "level2", "fast"),
+    15: ("enemy2", "level3", "power"),
+    16: ("enemy2", "level4", "armor"),
 }
 
 # Tile / special sprites per cell (row, col) -> name
@@ -145,13 +145,17 @@ TILE_SPRITES = {
 def tank_name(row: int, col: int) -> str:
     """Return the descriptive name for a tank cell."""
     info = TANK_ROWS[row]
-    owner, tank_type = info[0], info[1]
-    frame_offset = info[2] if len(info) > 2 else 0
+    owner, level, tank_type = info[0], info[1], info[2]
+
     # Direction and frame within the row
     idx = col - 1  # 0-15
-    direction = DIRS[idx // 4]
-    frame = (idx % 4) + 1 + frame_offset
-    return f"tank_{owner}_{tank_type}_{direction}_{frame}"
+    direction = DIRS[idx // 2 % 4]
+    frame = (idx % 2) + 1
+
+    if idx < 8:
+        tank_type = level
+    new_name = f"tank_{owner}_{tank_type}_{direction}_{frame}"
+    return new_name
 
 
 def build_mapping() -> dict:
