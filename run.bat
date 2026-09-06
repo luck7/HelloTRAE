@@ -11,7 +11,7 @@ if not exist "%PYTHON%" (
 )
 
 echo Starting Battle City...
-"%PYTHON%" -m pgzero "%~dp0main.py"
+pgzrun "%~dp0main.py"
 
 if errorlevel 1 (
     echo Game failed to run.

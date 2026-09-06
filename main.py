@@ -313,7 +313,7 @@ class Tank(Actor):
             else random.randint(ENEMY_SHOOT_COOLDOWN_MIN, ENEMY_SHOOT_COOLDOWN_MAX)
         if self.kind == 'player':
             try:
-                sounds.fire.play()
+                sounds.shoot.play()
             except Exception:
                 pass
 
@@ -774,7 +774,7 @@ class Game:
         # Title art (scaled and cached)
         if not hasattr(self, '_title_surf'):
             try:
-                src = pygame.image.load('images/title_screen.png').convert_alpha()
+                src = pygame.image.load('images/screen_title.png').convert_alpha()
                 w, h = src.get_size()
                 new_w = 320
                 new_h = int(h * new_w / w)
